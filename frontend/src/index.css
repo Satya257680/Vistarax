@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #05070f;
+  color: #e2e8f0;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #263047; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #33415c; }
+
+.glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015));
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px);
+}
+
+.glass-strong {
+  background: linear-gradient(180deg, rgba(17,24,39,0.9), rgba(10,14,26,0.95));
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+}
+
+.text-gradient {
+  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-primary {
+  @apply bg-gradient-to-r from-accent-blue to-accent-violet text-white font-medium px-4 py-2 rounded-xl shadow-glow hover:brightness-110 active:scale-[0.98] transition disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-secondary {
+  @apply bg-white/5 hover:bg-white/10 text-slate-200 font-medium px-4 py-2 rounded-xl border border-white/10 transition;
+}
+
+.btn-danger {
+  @apply bg-red-500/15 hover:bg-red-500/25 text-red-300 font-medium px-4 py-2 rounded-xl border border-red-500/30 transition;
+}
+
+.input {
+  @apply w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-accent-blue/60 focus:ring-2 focus:ring-accent-blue/20 transition;
+}
+
+.label {
+  @apply block text-xs font-medium text-slate-400 mb-1.5;
+}
+
+.card {
+  @apply glass rounded-2xl shadow-glass;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.25s ease-out; }
