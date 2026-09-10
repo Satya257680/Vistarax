@@ -72,81 +72,6 @@ Socket.IO client, Lucide icons.
 
 ---
 
-## 4. Setup
-
-### Backend
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-Open `.env` and set at minimum:
-
-- `JWT_SECRET` — a long random string (32+ characters). **Never use the
-  example value in production.** Generate one with:
-  `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
-- `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD` — the admin account
-  created automatically the first time the server starts (only if no users
-  exist yet). **Log in and change this password immediately.**
-- `CORS_ORIGIN` — the URL the frontend will be served from (default
-  `http://localhost:5173`).
-
-Install and run:
-
-```bash
-npm install
-npm run dev      # starts on http://localhost:5000 (auto-reload via nodemon)
-# or: npm start  # plain node, for production
-```
-
-On first run you'll see:
-`[VistaraX] Seeded default admin user "admin". Please log in and change the password immediately.`
-
-### Frontend
-
-```bash
-cd frontend
-cp .env.example .env
-```
-
-Set `VITE_API_URL` in `.env` if your backend isn't on `http://localhost:5000`.
-
-```bash
-npm install
-npm run dev       # starts on http://localhost:5173
-```
-
-Open `http://localhost:5173`, sign in with the admin credentials from your
-backend `.env`, and change the password from **Settings → Change Password**
-right away.
-
-### Production build
-
-```bash
-cd frontend
-npm run build      # outputs static files to frontend/dist
-```
-
-Serve `frontend/dist` with any static file host (nginx, Caddy, etc.) and run
-the backend behind a process manager (pm2, systemd) with `npm start`. Put
-both behind HTTPS in production — set `CORS_ORIGIN` to your real frontend
-domain and update `VITE_API_URL` to your real backend domain.
-
----
-
-## 5. Default login
-
-| Field    | Value (from `.env.example`) |
-|----------|------------------------------|
-| Username | `admin`                      |
-| Password | `ChangeMe@123`                |
-
-**Change this password on first login.** The account is only auto-created
-when the `users` table is empty, so changing `.env` after the first run has
-no effect — manage users from the **Users** page instead.
-
----
 
 ## 6. Roles
 
@@ -158,44 +83,6 @@ no effect — manage users from the **Users** page instead.
 
 Add more Entry Boy or Admin accounts from **Users** (admin only).
 
----
-
-## 7. Data & backups
-
-Everything lives in `backend/data/vistarax.db` (SQLite) and
-`backend/uploads/visitors/` (photos). To back up, copy both. To reset,
-stop the server and delete `backend/data/vistarax.db*` — it will be
-recreated with a fresh default admin on next start.
-
----
-
-## 8. Security notes
-
-- Change `JWT_SECRET` and the default admin password before any real use.
-- Run behind HTTPS in production — set `CORS_ORIGIN` accordingly.
-- The login endpoint is rate-limited (8 attempts / 15 min per IP) and
-  accounts lock for 15 minutes after 5 failed password attempts.
-- Every meaningful action (login, visitor CRUD, exports, user management) is
-  written to `audit_logs` for accountability.
-- Role checks happen in Express middleware (`requireRole`) on every
-  protected route — the frontend hiding a button is a convenience, not the
-  actual security boundary.
-
----
-
-## 9. Extending it
-
-The codebase is deliberately small and readable so you can extend it:
-
-- Swap SQLite for PostgreSQL by replacing `backend/src/db.js` — every route
-  only calls the exported `db` object's prepared-statement style methods.
-- Add QR visitor badges, duplicate-visitor detection, or a mobile kiosk mode
-  as new routes/pages following the existing patterns.
-- The Socket.IO layer (`backend/src/socket.js`) already broadcasts
-  `visitor:checkin` / `visitor:checkout` / `visitor:deleted` — subscribe to
-  more events there for SMS/email alerts, etc.
-
----
 
 Built as a standalone system — **VistaraX**: *Every Visitor. Every Entry.
 Fully Connected.*
