@@ -107,6 +107,104 @@ export function ToastStack({ toasts }) {
   );
 }
 
+// A text input that behaves like a "select or type" combobox: pick one of
+// the given options from a dropdown, or type a brand-new value that isn't in
+// the list yet (the caller decides what happens with unrecognized values -
+// e.g. the Users page's Role field sends it straight to the API, which
+// creates a matching role on the fly).
+export function Combobox({
+  value,
+  onChange,
+  options = [],
+  placeholder = 'Select or type...',
+  allowCreate = true,
+  createLabel = (v) => `Use "${v}"`,
+  disabled = false,
+  required = false,
+  name,
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState('');
+  const wrapRef = React.useRef(null);
+
+  const selected = options.find((o) => o.key === value);
+  const displayValue = open ? query : (selected ? selected.label : (value || ''));
+
+  React.useEffect(() => {
+    function onDocClick(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const filtered = options.filter((o) => o.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const exactMatch = options.some((o) => o.label.toLowerCase() === query.trim().toLowerCase());
+
+  function pick(opt) {
+    onChange(opt.key);
+    setQuery('');
+    setOpen(false);
+  }
+
+  function useTyped() {
+    const typed = query.trim();
+    if (!typed) return;
+    onChange(typed);
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      <input
+        className="input"
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        name={name}
+        autoComplete="off"
+        value={displayValue}
+        onFocus={() => { setQuery(selected ? selected.label : (value || '')); setOpen(true); }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (filtered.length && !exactMatch) pick(filtered[0]);
+            else useTyped();
+          }
+          if (e.key === 'Escape') setOpen(false);
+        }}
+      />
+      {open && !disabled && (
+        <div className="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto glass-strong rounded-xl shadow-glass py-1">
+          {filtered.map((o) => (
+            <button
+              type="button"
+              key={o.key}
+              onClick={() => pick(o)}
+              className="w-full text-left px-3.5 py-2 text-sm text-slate-200 hover:bg-white/10 transition"
+            >
+              {o.label}
+            </button>
+          ))}
+          {allowCreate && query.trim() && !exactMatch && (
+            <button
+              type="button"
+              onClick={useTyped}
+              className="w-full text-left px-3.5 py-2 text-sm text-accent-blue hover:bg-white/10 transition border-t border-white/10"
+            >
+              + {createLabel(query.trim())}
+            </button>
+          )}
+          {!filtered.length && !(allowCreate && query.trim()) && (
+            <p className="px-3.5 py-2 text-xs text-slate-500">No matches.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EmptyState({ title, message, icon: Icon }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">

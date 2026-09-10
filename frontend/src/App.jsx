@@ -9,6 +9,7 @@ import CurrentlyInside from './pages/CurrentlyInside.jsx';
 import Reports from './pages/Reports.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Users from './pages/Users.jsx';
+import RolesPermissions from './pages/RolesPermissions.jsx';
 import Settings from './pages/Settings.jsx';
 import Print from './pages/Print.jsx';
 
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
+        <Route path="/roles" element={<ProtectedRoute adminOnly><RolesPermissions /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

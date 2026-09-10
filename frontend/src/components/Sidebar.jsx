@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, DoorOpen, BarChart3, Bell, UserCog, Settings, ShieldCheck,
+  LayoutDashboard, Users, DoorOpen, BarChart3, Bell, UserCog, Settings, ShieldCheck, KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -22,6 +22,7 @@ export default function Sidebar() {
   ];
   const adminLinks = [
     { to: '/users', label: 'Users', icon: UserCog },
+    { to: '/roles', label: 'Roles & Permissions', icon: KeyRound },
     { to: '/settings', label: 'Settings', icon: Settings },
   ];
 

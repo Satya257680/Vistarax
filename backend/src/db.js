@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const Database = require('better-sqlite3');
+const { SYSTEM_ROLES, DEFAULT_ROLE_PERMISSIONS } = require('./utils/permissions');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -21,13 +22,30 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('admin','entry_boy')),
+  role TEXT NOT NULL DEFAULT 'employee',
   phone TEXT,
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')),
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Roles are open-ended: the five seeded below always exist, but an admin can
+-- create more at any time (from the Roles & Permissions screen, or simply by
+-- typing a new role name straight into a user's Role field).
+CREATE TABLE IF NOT EXISTS roles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  is_system INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role_key TEXT NOT NULL REFERENCES roles(key) ON DELETE CASCADE,
+  permission_key TEXT NOT NULL,
+  PRIMARY KEY (role_key, permission_key)
 );
 
 CREATE TABLE IF NOT EXISTS visitors (
@@ -95,11 +113,74 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 `);
 
+// --- Migration: older installs locked users.role to CHECK(role IN
+// ('admin','entry_boy')). Roles are now open-ended (kept in the `roles`
+// table instead), so anyone upgrading needs that column widened in place
+// without losing existing accounts.
+(function migrateUserRoleColumn() {
+  const tbl = db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'`).get();
+  if (tbl && /CHECK\s*\(\s*role\s+IN/i.test(tbl.sql)) {
+    // visitors.created_by and audit_logs.user_id both hold a FOREIGN KEY
+    // REFERENCES users(id). Two things have to be true while we swap the
+    // table out from under them:
+    //  1. `legacy_alter_table` must be ON so SQLite's rename doesn't rewrite
+    //     those columns' FK target to "users_pre_rbac" (which we then drop).
+    //  2. `foreign_keys` must be OFF for the duration, otherwise dropping
+    //     users_pre_rbac while real visitor/audit rows still point at it
+    //     fails with "FOREIGN KEY constraint failed".
+    // Both PRAGMAs are restored to their previous state afterwards.
+    const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
+    db.pragma('foreign_keys = OFF');
+    db.pragma('legacy_alter_table = ON');
+    try {
+      const migrate = db.transaction(() => {
+        db.exec(`ALTER TABLE users RENAME TO users_pre_rbac`);
+        db.exec(`
+          CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            username TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'employee',
+            phone TEXT,
+            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')),
+            failed_attempts INTEGER NOT NULL DEFAULT 0,
+            locked_until TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+          );
+        `);
+        db.exec(`INSERT INTO users SELECT * FROM users_pre_rbac`);
+        db.exec(`DROP TABLE users_pre_rbac`);
+      });
+      migrate();
+    } finally {
+      db.pragma('legacy_alter_table = OFF');
+      if (fkWasOn) db.pragma('foreign_keys = ON');
+    }
+    // eslint-disable-next-line no-console
+    console.log('[VistaraX] Migrated users.role to support custom roles.');
+  }
+})();
+
 // Seed default settings row
 const settingsRow = db.prepare('SELECT id FROM settings WHERE id = 1').get();
 if (!settingsRow) {
   db.prepare(`INSERT INTO settings (id, company_name) VALUES (1, 'VistaraX')`).run();
 }
+
+// Seed the system roles and their default permission sets (idempotent - safe
+// to run on every boot; INSERT OR IGNORE skips anything already there).
+function seedRoles() {
+  const insertRole = db.prepare('INSERT OR IGNORE INTO roles (key, label, is_system) VALUES (?, ?, 1)');
+  SYSTEM_ROLES.forEach((r) => insertRole.run(r.key, r.label));
+
+  const insertPerm = db.prepare('INSERT OR IGNORE INTO role_permissions (role_key, permission_key) VALUES (?, ?)');
+  Object.entries(DEFAULT_ROLE_PERMISSIONS).forEach(([roleKey, perms]) => {
+    perms.forEach((p) => insertPerm.run(roleKey, p));
+  });
+}
+seedRoles();
 
 // Seed default admin (only if no users exist yet)
 function seedAdmin() {

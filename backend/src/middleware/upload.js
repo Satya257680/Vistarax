@@ -1,6 +1,9 @@
-// VistaraX - Secure photo upload handling (multer)
-// Restricts to image mimetypes, caps file size, writes random filenames so
-// the original client-supplied name is never trusted or exposed.
+// VistaraX - Secure file upload handling (multer)
+// `upload` restricts visitor photos to image mimetypes, caps file size, and
+// writes random filenames so the original client-supplied name is never
+// trusted or exposed. `bulkUpload` is a separate, memory-backed config for
+// the Users "Bulk Upload" CSV/Excel import - small files, parsed in-process
+// with the `xlsx` package, never written to disk.
 
 const path = require('path');
 const fs = require('fs');
@@ -37,4 +40,17 @@ const upload = multer({
   limits: { fileSize: maxSizeMb * 1024 * 1024, files: 1 },
 });
 
-module.exports = { upload, UPLOAD_DIR };
+// --- Bulk user import (CSV / Excel) ----------------------------------------
+const bulkUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    const okExt = /\.(csv|xlsx|xls)$/i.test(file.originalname || '');
+    if (!okExt) {
+      return cb(new Error('Only CSV or Excel (.xlsx/.xls) files are allowed.'));
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+});
+
+module.exports = { upload, UPLOAD_DIR, bulkUpload };

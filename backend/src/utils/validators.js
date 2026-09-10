@@ -30,8 +30,12 @@ const visitorValidators = [
 const userValidators = [
   body('name').trim().isLength({ min: 1, max: 150 }),
   body('username').trim().isLength({ min: 3, max: 50 }).matches(/^[a-zA-Z0-9_.]+$/),
-  body('role').isIn(['admin', 'entry_boy']),
-  body('phone').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+  // Roles are open-ended (admin, entry_boy, entry_girl, manager, employee, or
+  // any custom role typed in on the fly) - the users route resolves this
+  // string against the roles table, creating a new role if it doesn't
+  // already exist by key or label. We only enforce that something was sent.
+  body('role').trim().isLength({ min: 1, max: 60 }),
+  body('phone').trim().isLength({ min: 6, max: 20 }).matches(/^[0-9+\-\s()]+$/),
 ];
 
 module.exports = { handleValidation, loginValidators, visitorValidators, userValidators };

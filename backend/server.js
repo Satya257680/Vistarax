@@ -21,6 +21,7 @@ const { initSocket } = require('./src/socket');
 const authRoutes = require('./src/routes/auth.routes');
 const visitorRoutes = require('./src/routes/visitors.routes');
 const userRoutes = require('./src/routes/users.routes');
+const roleRoutes = require('./src/routes/roles.routes');
 const settingsRoutes = require('./src/routes/settings.routes');
 const notificationRoutes = require('./src/routes/notifications.routes');
 const exportRoutes = require('./src/routes/export.routes');
@@ -53,6 +54,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/visitors', visitorRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/roles', roleRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/export', exportRoutes);
@@ -61,7 +63,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true, service: 'VistaraX API
 
 // --- Error handling ------------------------------------------------------
 app.use((err, req, res, next) => {
-  if (err && err.message && err.message.includes('Only JPEG')) {
+  if (err && err.message && (err.message.includes('Only JPEG') || err.message.includes('are allowed'))) {
     return res.status(422).json({ error: err.message });
   }
   if (err && err.code === 'LIMIT_FILE_SIZE') {
