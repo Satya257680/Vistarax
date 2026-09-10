@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Users, DoorOpen, CheckCircle2, CalendarDays } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import Layout from '../components/Layout.jsx';
-import { StatCard, Spinner } from '../components/UI.jsx';
+import { StatCard, Spinner, CheckoutDialog } from '../components/UI.jsx';
 import VisitorTable from '../components/VisitorTable.jsx';
 import VisitorProfileDrawer from '../components/VisitorProfileDrawer.jsx';
 import client from '../api/client.js';
@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewId, setViewId] = useState(null);
+  const [checkoutTarget, setCheckoutTarget] = useState(null);
 
   const load = useCallback(async () => {
     const [{ data: s }, { data: r }] = await Promise.all([
@@ -45,8 +46,9 @@ export default function Dashboard() {
     };
   }, [socket, load]);
 
-  async function checkout(id) {
-    await client.post(`/visitors/${id}/checkout`);
+  async function confirmCheckout(remarks) {
+    await client.post(`/visitors/${checkoutTarget.id}/checkout`, { remarks });
+    setCheckoutTarget(null);
     load();
   }
 
@@ -127,12 +129,20 @@ export default function Dashboard() {
         <VisitorTable
           rows={recent}
           onView={setViewId}
-          onCheckout={checkout}
+          onCheckout={(id) => setCheckoutTarget(recent.find((r) => r.id === id))}
           canDelete={false}
         />
       </div>
 
       {viewId && <VisitorProfileDrawer visitorId={viewId} onClose={() => setViewId(null)} onChanged={load} canDelete={isAdmin} />}
+
+      {checkoutTarget && (
+        <CheckoutDialog
+          visitorName={checkoutTarget.name}
+          onConfirm={confirmCheckout}
+          onCancel={() => setCheckoutTarget(null)}
+        />
+      )}
     </Layout>
   );
 }

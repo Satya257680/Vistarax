@@ -1,13 +1,13 @@
 // VistaraX - Topbar: search, notifications bell, profile menu, logout
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, LogOut, User, Wifi, WifiOff } from 'lucide-react';
+import { Search, Bell, LogOut, User, Wifi, WifiOff, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useSocket } from '../context/SocketContext.jsx';
 import client from '../api/client.js';
 import { ConfirmDialog } from './UI.jsx';
 
-export default function Topbar({ onSearch }) {
+export default function Topbar({ onSearch, onOpenMenu }) {
   const { user, logout } = useAuth();
   const { connected } = useSocket();
   const navigate = useNavigate();
@@ -38,7 +38,17 @@ export default function Topbar({ onSearch }) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 glass border-b border-white/10 px-4 sm:px-6 py-3 flex items-center gap-4">
+    <header className="sticky top-0 z-30 glass border-b border-white/10 px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+      <button
+        onClick={onOpenMenu}
+        className="lg:hidden h-10 w-10 shrink-0 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition"
+        aria-label="Open menu"
+      >
+        <Menu size={18} className="text-slate-300" />
+      </button>
+
+      <img src="/vistarax-logo.png" alt="VistaraX" className="lg:hidden h-8 w-8 rounded-lg shrink-0" />
+
       <div className="flex-1 max-w-md relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
         <input

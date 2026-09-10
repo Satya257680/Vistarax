@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS visitors (
   visit_date TEXT NOT NULL,
   visit_day TEXT NOT NULL,
   remarks TEXT,
+  checkout_remarks TEXT,
   status TEXT NOT NULL DEFAULT 'inside' CHECK(status IN ('inside','checked_out')),
   created_by INTEGER REFERENCES users(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -160,6 +161,18 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     }
     // eslint-disable-next-line no-console
     console.log('[VistaraX] Migrated users.role to support custom roles.');
+  }
+})();
+
+// --- Migration: add visitors.checkout_remarks for installs created before
+// the checkout-time notes feature existed. Plain ADD COLUMN - no foreign
+// keys involved, so this one is simple.
+(function migrateVisitorCheckoutRemarks() {
+  const cols = db.prepare(`PRAGMA table_info(visitors)`).all();
+  if (cols.length && !cols.some((c) => c.name === 'checkout_remarks')) {
+    db.exec(`ALTER TABLE visitors ADD COLUMN checkout_remarks TEXT`);
+    // eslint-disable-next-line no-console
+    console.log('[VistaraX] Added visitors.checkout_remarks column.');
   }
 })();
 

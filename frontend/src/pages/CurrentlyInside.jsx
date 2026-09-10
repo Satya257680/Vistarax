@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { DoorOpen, Clock } from 'lucide-react';
 import Layout from '../components/Layout.jsx';
-import { EmptyState, Spinner, Badge } from '../components/UI.jsx';
+import { EmptyState, Spinner, Badge, CheckoutDialog } from '../components/UI.jsx';
 import VisitorProfileDrawer from '../components/VisitorProfileDrawer.jsx';
 import client, { API_URL } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -31,6 +31,7 @@ export default function CurrentlyInside() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewId, setViewId] = useState(null);
+  const [checkoutTarget, setCheckoutTarget] = useState(null);
 
   const load = useCallback(async () => {
     const { data } = await client.get('/visitors', { params: { status: 'inside', pageSize: 200 } });
@@ -51,8 +52,9 @@ export default function CurrentlyInside() {
     };
   }, [socket, load]);
 
-  async function checkout(id) {
-    await client.post(`/visitors/${id}/checkout`);
+  async function confirmCheckout(remarks) {
+    await client.post(`/visitors/${checkoutTarget.id}/checkout`, { remarks });
+    setCheckoutTarget(null);
     load();
   }
 
@@ -84,7 +86,7 @@ export default function CurrentlyInside() {
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
                 <Duration since={v.checkin_time} />
                 <button
-                  onClick={(e) => { e.stopPropagation(); checkout(v.id); }}
+                  onClick={(e) => { e.stopPropagation(); setCheckoutTarget(v); }}
                   className="text-xs font-medium text-accent-blue hover:underline"
                 >
                   Check Out
@@ -96,6 +98,14 @@ export default function CurrentlyInside() {
       )}
 
       {viewId && <VisitorProfileDrawer visitorId={viewId} onClose={() => setViewId(null)} onChanged={load} canDelete={isAdmin} />}
+
+      {checkoutTarget && (
+        <CheckoutDialog
+          visitorName={checkoutTarget.name}
+          onConfirm={confirmCheckout}
+          onCancel={() => setCheckoutTarget(null)}
+        />
+      )}
     </Layout>
   );
 }

@@ -34,14 +34,16 @@ router.get('/csv', (req, res) => {
   const rows = getRows(req.query);
   const headers = [
     'Serial No', 'Name', 'Contact', 'WhatsApp', 'Companions', 'Whom To Visit', 'Purpose',
-    'Check-in', 'Check-out', 'Status', 'Address', 'Visit Date', 'Day', 'Remarks',
+    'Check-in', 'Check-out', 'Status', 'Address', 'Latitude', 'Longitude', 'Visit Date', 'Day',
+    'Remarks', 'Checkout Remarks',
   ];
   const csvRows = [headers.join(',')];
   rows.forEach((v) => {
     const line = [
       v.serial_no, v.name, v.contact_no, v.whatsapp_no || '', v.companions || '', v.whom_to_visit,
       v.purpose || '', v.checkin_time, v.checkout_time || '', v.status, (v.address || '').replace(/,/g, ';'),
-      v.visit_date, v.visit_day, (v.remarks || '').replace(/,/g, ';'),
+      v.latitude ?? '', v.longitude ?? '', v.visit_date, v.visit_day,
+      (v.remarks || '').replace(/,/g, ';'), (v.checkout_remarks || '').replace(/,/g, ';'),
     ].map((val) => `"${String(val).replace(/"/g, '""')}"`);
     csvRows.push(line.join(','));
   });
@@ -64,9 +66,12 @@ router.get('/excel', (req, res) => {
     'Check-out': v.checkout_time || '',
     Status: v.status,
     Address: v.address || '',
+    Latitude: v.latitude ?? '',
+    Longitude: v.longitude ?? '',
     'Visit Date': v.visit_date,
     Day: v.visit_day,
     Remarks: v.remarks || '',
+    'Checkout Remarks': v.checkout_remarks || '',
   }));
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);

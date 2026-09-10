@@ -1,13 +1,15 @@
 // VistaraX - Visitor profile modal: large photo, full-screen viewer, history
 import React, { useEffect, useState } from 'react';
-import { Modal, Badge, Spinner } from './UI.jsx';
+import { Modal, Badge, Spinner, CheckoutDialog } from './UI.jsx';
+import { googleMapsUrl } from './MapPicker.jsx';
 import client, { API_URL } from '../api/client.js';
-import { Phone, MessageCircle, MapPin, Clock, LogOut, Printer, Trash2, X, ZoomIn } from 'lucide-react';
+import { Phone, MessageCircle, MapPin, Clock, LogOut, Printer, Trash2, X, ZoomIn, ExternalLink } from 'lucide-react';
 
 export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, canDelete }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -16,8 +18,8 @@ export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, ca
     return () => { mounted = false; };
   }, [visitorId]);
 
-  async function checkOut() {
-    await client.post(`/visitors/${visitorId}/checkout`);
+  async function checkOut(remarks) {
+    await client.post(`/visitors/${visitorId}/checkout`, { remarks });
     onChanged?.();
     onClose();
   }
@@ -72,8 +74,8 @@ export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, ca
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2 text-slate-300"><Phone size={14} className="text-slate-500" /> {v.contact_no}</div>
               {v.whatsapp_no && <div className="flex items-center gap-2 text-slate-300"><MessageCircle size={14} className="text-slate-500" /> {v.whatsapp_no}</div>}
-              <div className="flex items-center gap-2 text-slate-300"><Clock size={14} className="text-slate-500" /> In: {new Date(v.checkin_time).toLocaleTimeString()}</div>
-              <div className="flex items-center gap-2 text-slate-300"><Clock size={14} className="text-slate-500" /> Out: {v.checkout_time ? new Date(v.checkout_time).toLocaleTimeString() : '—'}</div>
+              <div className="flex items-center gap-2 text-slate-300"><Clock size={14} className="text-slate-500" /> In: {new Date(v.checkin_time).toLocaleString()}</div>
+              <div className="flex items-center gap-2 text-slate-300"><Clock size={14} className="text-slate-500" /> Out: {v.checkout_time ? new Date(v.checkout_time).toLocaleString() : '—'}</div>
             </div>
 
             {v.purpose && (
@@ -88,22 +90,34 @@ export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, ca
                 <p className="text-sm text-slate-300">{v.companions}</p>
               </div>
             )}
-            {v.address && (
+            {(v.address || v.latitude) && (
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase mb-1 flex items-center gap-1"><MapPin size={12} /> Address</p>
-                <p className="text-sm text-slate-300">{v.address}</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-1 flex items-center gap-1"><MapPin size={12} /> Location</p>
+                {v.address && <p className="text-sm text-slate-300">{v.address}</p>}
                 {v.latitude && (
-                  <a className="text-xs text-accent-blue hover:underline" target="_blank" rel="noreferrer"
-                     href={`https://www.openstreetmap.org/?mlat=${v.latitude}&mlon=${v.longitude}#map=16/${v.latitude}/${v.longitude}`}>
-                    View on map →
-                  </a>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-slate-500 font-mono">{Number(v.latitude).toFixed(5)}, {Number(v.longitude).toFixed(5)}</p>
+                    <a
+                      className="text-xs flex items-center gap-1 text-accent-blue hover:underline"
+                      target="_blank" rel="noreferrer"
+                      href={googleMapsUrl(v.latitude, v.longitude)}
+                    >
+                      <ExternalLink size={11} /> Open Map
+                    </a>
+                  </div>
                 )}
               </div>
             )}
             {v.remarks && (
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Remarks</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Remarks (check-in)</p>
                 <p className="text-sm text-slate-300">{v.remarks}</p>
+              </div>
+            )}
+            {v.checkout_remarks && (
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Remarks (check-out)</p>
+                <p className="text-sm text-slate-300">{v.checkout_remarks}</p>
               </div>
             )}
 
@@ -123,7 +137,7 @@ export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, ca
 
             <div className="flex flex-wrap gap-2 pt-3 border-t border-white/10">
               {v.status === 'inside' && (
-                <button onClick={checkOut} className="btn-primary flex items-center gap-1.5 text-sm"><LogOut size={14} /> Check Out</button>
+                <button onClick={() => setShowCheckout(true)} className="btn-primary flex items-center gap-1.5 text-sm"><LogOut size={14} /> Check Out</button>
               )}
               <button onClick={() => window.open(`/print?ids=${v.id}`, '_blank')} className="btn-secondary flex items-center gap-1.5 text-sm"><Printer size={14} /> Print</button>
               {canDelete && (
@@ -139,6 +153,14 @@ export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, ca
           <button className="absolute top-5 right-5 text-white/80 hover:text-white"><X size={28} /></button>
           <img src={photo} alt={v.name} className="max-h-full max-w-full rounded-lg object-contain" />
         </div>
+      )}
+
+      {showCheckout && (
+        <CheckoutDialog
+          visitorName={v.name}
+          onConfirm={async (remarks) => { await checkOut(remarks); }}
+          onCancel={() => setShowCheckout(false)}
+        />
       )}
     </>
   );

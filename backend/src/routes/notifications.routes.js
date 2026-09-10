@@ -22,4 +22,10 @@ router.post('/:id/read', (req, res) => {
   res.json({ ok: true });
 });
 
+// Clear the whole feed (the bell badge and this page both empty out).
+router.delete('/', (req, res) => {
+  db.prepare('DELETE FROM notifications').run();
+  res.json({ ok: true });
+});
+
 module.exports = router;

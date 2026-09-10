@@ -92,6 +92,41 @@ export function ConfirmDialog({ title, message, confirmLabel = 'Confirm', danger
   );
 }
 
+// Confirms a visitor check-out with an optional remarks note (e.g. "took a
+// laptop bag with them") - used anywhere a Check Out action appears.
+export function CheckoutDialog({ visitorName, onConfirm, onCancel }) {
+  const [remarks, setRemarks] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+
+  async function confirm() {
+    setBusy(true);
+    try {
+      await onConfirm(remarks.trim());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title={`Check Out${visitorName ? ` — ${visitorName}` : ''}`} onClose={onCancel}>
+      <p className="text-sm text-slate-300 mb-4">Confirm this visitor's check-out time now.</p>
+      <label className="label">Remarks <span className="text-slate-600">(optional — e.g. items taken with them)</span></label>
+      <textarea
+        className="input resize-none"
+        rows={3}
+        autoFocus
+        value={remarks}
+        onChange={(e) => setRemarks(e.target.value)}
+        placeholder="Laptop bag, visitor badge returned, etc."
+      />
+      <div className="flex justify-end gap-3 pt-4">
+        <button className="btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
+        <button className="btn-primary" onClick={confirm} disabled={busy}>{busy ? 'Checking out...' : 'Check Out'}</button>
+      </div>
+    </Modal>
+  );
+}
+
 export function ToastStack({ toasts }) {
   if (!toasts?.length) return null;
   return (

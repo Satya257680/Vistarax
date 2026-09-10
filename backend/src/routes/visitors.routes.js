@@ -220,15 +220,25 @@ router.put('/:id', upload.single('photo'), (req, res) => {
 });
 
 // --- CHECK OUT -----------------------------------------------------------------
+// `remarks` here is optional and specific to checkout (e.g. "returned the
+// visitor badge", "took a laptop bag with them") - stored separately from
+// the check-in `remarks` field so neither overwrites the other.
 router.post('/:id/checkout', (req, res) => {
   const visitor = db.prepare('SELECT * FROM visitors WHERE id = ?').get(req.params.id);
   if (!visitor) return res.status(404).json({ error: 'Visitor not found.' });
   if (visitor.status === 'checked_out') {
     return res.status(409).json({ error: 'Visitor is already checked out.' });
   }
+  // IMPORTANT: bind an explicit ISO timestamp (with the trailing "Z") here,
+  // the same way checkin_time is stored below in CREATE. SQLite's own
+  // datetime('now') returns "YYYY-MM-DD HH:MM:SS" with no timezone marker,
+  // which browsers parse as *local* time instead of UTC - that's what made
+  // a visitor's check-out time render earlier than their check-in time.
+  const checkoutTime = new Date().toISOString();
+  const checkoutRemarks = req.body?.remarks ? String(req.body.remarks).trim().slice(0, 500) : null;
   db.prepare(
-    `UPDATE visitors SET status = 'checked_out', checkout_time = datetime('now'), updated_at = datetime('now') WHERE id = ?`
-  ).run(visitor.id);
+    `UPDATE visitors SET status = 'checked_out', checkout_time = ?, checkout_remarks = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(checkoutTime, checkoutRemarks || null, visitor.id);
   const updated = db.prepare('SELECT * FROM visitors WHERE id = ?').get(visitor.id);
 
   db.prepare(

@@ -1,11 +1,11 @@
 // VistaraX - All Visitors: search, filter, add/edit, delete (single & all), export, print
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Download, Printer, Trash2, Filter, FileSpreadsheet, FileText, File as FileIcon } from 'lucide-react';
+import { Plus, Download, Printer, Trash2, Filter, FileSpreadsheet, FileText, File as FileIcon, UserPlus } from 'lucide-react';
 import Layout from '../components/Layout.jsx';
 import VisitorTable from '../components/VisitorTable.jsx';
 import VisitorModal from '../components/VisitorModal.jsx';
 import VisitorProfileDrawer from '../components/VisitorProfileDrawer.jsx';
-import { ConfirmDialog, Spinner } from '../components/UI.jsx';
+import { ConfirmDialog, CheckoutDialog, Spinner } from '../components/UI.jsx';
 import client, { API_URL } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useSocket } from '../context/SocketContext.jsx';
@@ -25,6 +25,7 @@ export default function Visitors() {
   const [deleteId, setDeleteId] = useState(null);
   const [deleteAll, setDeleteAll] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [checkoutTarget, setCheckoutTarget] = useState(null);
   const pageSize = 10;
 
   const load = useCallback(async () => {
@@ -52,8 +53,9 @@ export default function Visitors() {
     };
   }, [socket, load]);
 
-  async function checkout(id) {
-    await client.post(`/visitors/${id}/checkout`);
+  async function confirmCheckout(remarks) {
+    await client.post(`/visitors/${checkoutTarget.id}/checkout`, { remarks });
+    setCheckoutTarget(null);
     load();
   }
 
@@ -110,10 +112,22 @@ export default function Visitors() {
               <Trash2 size={15} /> Delete All
             </button>
           )}
-          <button onClick={() => { setEditVisitor(null); setShowForm(true); }} className="btn-primary flex items-center gap-2 text-sm">
-            <Plus size={15} /> Add Visitor
-          </button>
         </div>
+      </div>
+
+      {/* A normal, always-visible way in - not a small button tucked in a
+          corner - since logging a visitor is the most common action here. */}
+      <div className="card p-5 mb-4 flex flex-col sm:flex-row items-center gap-4 bg-gradient-to-r from-accent-blue/10 via-transparent to-accent-violet/10">
+        <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-accent-blue to-accent-violet flex items-center justify-center shadow-glow shrink-0">
+          <UserPlus size={26} className="text-white" />
+        </div>
+        <div className="flex-1 text-center sm:text-left">
+          <h3 className="text-base font-semibold text-white">Log a New Visitor</h3>
+          <p className="text-sm text-slate-400 mt-0.5">Capture their photo, contact details and exact location in seconds.</p>
+        </div>
+        <button onClick={() => { setEditVisitor(null); setShowForm(true); }} className="btn-primary flex items-center gap-2 text-sm px-5 py-2.5 shrink-0">
+          <Plus size={16} /> Add Visitor
+        </button>
       </div>
 
       <div className="card p-4 mb-4 flex flex-wrap gap-3 items-center">
@@ -139,7 +153,7 @@ export default function Visitors() {
             onView={setViewId}
             onEdit={(v) => { setEditVisitor(v); setShowForm(true); }}
             onDelete={setDeleteId}
-            onCheckout={checkout}
+            onCheckout={(id) => setCheckoutTarget(rows.find((r) => r.id === id))}
             canDelete={isAdmin || true}
           />
         )}
@@ -162,6 +176,14 @@ export default function Visitors() {
       )}
 
       {viewId && <VisitorProfileDrawer visitorId={viewId} onClose={() => setViewId(null)} onChanged={load} canDelete={isAdmin} />}
+
+      {checkoutTarget && (
+        <CheckoutDialog
+          visitorName={checkoutTarget.name}
+          onConfirm={confirmCheckout}
+          onCancel={() => setCheckoutTarget(null)}
+        />
+      )}
 
       {deleteId && (
         <ConfirmDialog
