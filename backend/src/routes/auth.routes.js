@@ -18,8 +18,27 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again later.' },
 });
 
+// Same protection, applied separately to the forgot-password endpoints so an
+// attacker can't use them to enumerate usernames/emails or brute-force a
+// reset token.
+const forgotLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
+});
+
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
+
+// The five system roles a person can pick from on the Forgot Password
+// screen (mirrors utils/permissions.js SYSTEM_ROLES) - kept here as a plain
+// list of keys so we don't need to touch the roles table (custom roles can
+// still reset via a direct admin edit).
+const RESETTABLE_ROLES = ['admin', 'manager', 'entry_boy', 'entry_girl', 'employee'];
+const RESET_PASSWORD_MIN = 8;
+const RESET_PASSWORD_MAX = 15;
 
 router.post('/login', loginLimiter, loginValidators, handleValidation, (req, res) => {
   const { username, password } = req.body;
@@ -67,6 +86,78 @@ router.post('/login', loginLimiter, loginValidators, handleValidation, (req, res
     token,
     user: { id: user.id, name: user.name, username: user.username, role: user.role },
   });
+});
+
+// --- FORGOT PASSWORD (step 1): verify role + username + email ---------------
+// No SMTP server in this deployment, so instead of emailing a link we verify
+// the account directly against the role/username/email an admin set on it
+// and hand back a short-lived reset token the client uses for step 2. Every
+// outcome below intentionally avoids HTTP 401 - the frontend's axios
+// interceptor treats a 401 as "session expired" and force-redirects to
+// /login, which would break this page for a signed-out visitor.
+router.post('/forgot-password/verify', forgotLimiter, (req, res) => {
+  const { role, username, email } = req.body || {};
+  const cleanRole = String(role || '').trim();
+  const cleanUsername = String(username || '').trim();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+
+  if (!cleanRole || !RESETTABLE_ROLES.includes(cleanRole)) {
+    return res.status(422).json({ error: 'Please select a valid role.' });
+  }
+  if (!cleanUsername || !cleanEmail) {
+    return res.status(422).json({ error: 'Username and email are both required.' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE').get(cleanUsername);
+  const matches = user && user.role === cleanRole && user.email && user.email.toLowerCase() === cleanEmail;
+
+  if (!matches) {
+    logAudit({ action: 'PASSWORD_RESET_VERIFY_FAILED', module: 'auth', recordId: cleanUsername, ip: req.ip });
+    return res.status(404).json({ error: "We couldn't verify an account with that role, username and email. Double-check the details, or ask an administrator to confirm the email on file." });
+  }
+  if (user.status === 'blocked') {
+    return res.status(403).json({ error: 'This account has been blocked. Contact an administrator.' });
+  }
+
+  const resetToken = jwt.sign({ sub: user.id, purpose: 'pwreset' }, process.env.JWT_SECRET, { expiresIn: '10m' });
+  logAudit({ userId: user.id, username: user.username, action: 'PASSWORD_RESET_VERIFIED', module: 'auth', ip: req.ip });
+  res.json({ resetToken, name: user.name });
+});
+
+// --- FORGOT PASSWORD (step 2): set a new password using the reset token ----
+router.post('/forgot-password/reset', forgotLimiter, (req, res) => {
+  const { resetToken, new_password, confirm_password } = req.body || {};
+
+  if (!new_password || new_password.length < RESET_PASSWORD_MIN || new_password.length > RESET_PASSWORD_MAX) {
+    return res.status(422).json({ error: `New password must be between ${RESET_PASSWORD_MIN} and ${RESET_PASSWORD_MAX} characters.` });
+  }
+  if (confirm_password !== undefined && confirm_password !== new_password) {
+    return res.status(422).json({ error: 'Passwords do not match.' });
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(resetToken, process.env.JWT_SECRET);
+  } catch {
+    return res.status(422).json({ error: 'This reset session has expired. Please verify your details again.' });
+  }
+  if (!payload || payload.purpose !== 'pwreset') {
+    return res.status(422).json({ error: 'Invalid reset session. Please verify your details again.' });
+  }
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.sub);
+  if (!user) return res.status(404).json({ error: 'This account no longer exists.' });
+  if (user.status === 'blocked') {
+    return res.status(403).json({ error: 'This account has been blocked. Contact an administrator.' });
+  }
+
+  const hash = bcrypt.hashSync(new_password, parseInt(process.env.BCRYPT_ROUNDS || '12', 10));
+  db.prepare(
+    `UPDATE users SET password_hash = ?, failed_attempts = 0, locked_until = NULL, updated_at = datetime('now') WHERE id = ?`
+  ).run(hash, user.id);
+
+  logAudit({ userId: user.id, username: user.username, action: 'PASSWORD_RESET_COMPLETED', module: 'auth', ip: req.ip });
+  res.json({ ok: true });
 });
 
 router.get('/me', requireAuth, (req, res) => {

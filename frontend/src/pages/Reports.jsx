@@ -5,10 +5,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   BarChart3, Download, FileSpreadsheet, FileText, File as FileIcon, Filter, X,
-  ExternalLink, MapPin, Pencil, Trash2,
+  ExternalLink, MapPin, Eye, Pencil, Trash2,
 } from 'lucide-react';
 import Layout from '../components/Layout.jsx';
 import VisitorModal from '../components/VisitorModal.jsx';
+import VisitorProfileDrawer from '../components/VisitorProfileDrawer.jsx';
 import { Spinner, Badge, EmptyState, ConfirmDialog } from '../components/UI.jsx';
 import { googleMapsUrl } from '../components/MapPicker.jsx';
 import client, { API_URL } from '../api/client.js';
@@ -32,6 +33,7 @@ export default function Reports() {
 
   const [editVisitor, setEditVisitor] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [viewId, setViewId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [deleteAll, setDeleteAll] = useState(false);
 
@@ -188,6 +190,7 @@ export default function Reports() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
+                        <button onClick={() => setViewId(v.id)} title="View" className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"><Eye size={14} /></button>
                         <button onClick={() => { setEditVisitor(v); setShowForm(true); }} title="Edit" className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"><Pencil size={14} /></button>
                         <button onClick={() => setDeleteId(v.id)} title="Delete" className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400 hover:text-red-300 transition"><Trash2 size={14} /></button>
                       </div>
@@ -215,6 +218,8 @@ export default function Reports() {
           onSaved={() => { setShowForm(false); load(); }}
         />
       )}
+
+      {viewId && <VisitorProfileDrawer visitorId={viewId} onClose={() => setViewId(null)} onChanged={load} canDelete={isAdmin} />}
 
       {deleteId && (
         <ConfirmDialog

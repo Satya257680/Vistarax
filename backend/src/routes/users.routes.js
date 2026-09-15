@@ -62,14 +62,21 @@ router.get('/', (req, res) => {
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db
-    .prepare(`SELECT id, name, username, role, phone, status, created_at FROM users ${where} ORDER BY id DESC`)
+    .prepare(`SELECT id, name, username, role, phone, email, status, created_at FROM users ${where} ORDER BY id DESC`)
     .all(...params);
   res.json({ data: rows });
 });
 
+// Normalizes an optional email: trims/lowercases, or returns null for an
+// empty value. Used by both create and update below.
+function cleanEmail(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return v || null;
+}
+
 // --- CREATE ------------------------------------------------------------------
 router.post('/', userValidators, handleValidation, (req, res) => {
-  const { name, username, password, role, phone } = req.body;
+  const { name, username, password, role, phone, email } = req.body;
   if (!password || password.length < 6) {
     return res.status(422).json({ error: 'Password must be at least 6 characters.' });
   }
@@ -79,13 +86,19 @@ router.post('/', userValidators, handleValidation, (req, res) => {
   const roleKey = ensureRole(role);
   if (!roleKey) return res.status(422).json({ error: 'Role is required.' });
 
+  const emailValue = cleanEmail(email);
+  if (emailValue) {
+    const emailClash = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(emailValue);
+    if (emailClash) return res.status(409).json({ error: 'That email is already in use by another account.' });
+  }
+
   const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS());
   const info = db
-    .prepare('INSERT INTO users (name, username, password_hash, role, phone) VALUES (?,?,?,?,?)')
-    .run(name, username, hash, roleKey, phone.trim());
+    .prepare('INSERT INTO users (name, username, password_hash, role, phone, email) VALUES (?,?,?,?,?,?)')
+    .run(name, username, hash, roleKey, phone.trim(), emailValue);
 
   logAudit({ userId: req.user.id, username: req.user.username, action: 'CREATE', module: 'users', recordId: info.lastInsertRowid, ip: req.ip });
-  const user = db.prepare('SELECT id, name, username, role, phone, status FROM users WHERE id = ?').get(info.lastInsertRowid);
+  const user = db.prepare('SELECT id, name, username, role, phone, email, status FROM users WHERE id = ?').get(info.lastInsertRowid);
   res.status(201).json({ user });
 });
 
@@ -125,6 +138,7 @@ router.post('/bulk', bulkUpload.single('file'), (req, res) => {
     const password = pick(row, 'password');
     const roleInput = pick(row, 'role');
     const phone = pick(row, 'phone', 'contact', 'contact no', 'contact number');
+    const emailInput = pick(row, 'email', 'email address'); // optional - enables Forgot Password later
 
     if (!name || !username || !password || !roleInput || !phone) {
       results.skipped += 1;
@@ -141,12 +155,18 @@ router.post('/bulk', bulkUpload.single('file'), (req, res) => {
       results.errors.push(`Row ${rowNum}: username "${username}" already exists.`);
       return;
     }
+    const emailValue = emailInput ? emailInput.trim().toLowerCase() : null;
+    if (emailValue && db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(emailValue)) {
+      results.skipped += 1;
+      results.errors.push(`Row ${rowNum}: email "${emailValue}" is already in use.`);
+      return;
+    }
 
     const roleKey = ensureRole(roleInput);
     const hash = bcrypt.hashSync(password, rounds);
     const info = db
-      .prepare('INSERT INTO users (name, username, password_hash, role, phone) VALUES (?,?,?,?,?)')
-      .run(name, username, hash, roleKey, phone);
+      .prepare('INSERT INTO users (name, username, password_hash, role, phone, email) VALUES (?,?,?,?,?,?)')
+      .run(name, username, hash, roleKey, phone, emailValue);
     logAudit({ userId: req.user.id, username: req.user.username, action: 'CREATE', module: 'users', recordId: info.lastInsertRowid, ip: req.ip });
     results.created += 1;
   });
@@ -159,7 +179,7 @@ router.post('/bulk', bulkUpload.single('file'), (req, res) => {
 router.get('/bulk/template', (req, res) => {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet([
-    { Name: 'Jane Doe', Username: 'jane.doe', Password: 'Passw0rd!', Role: 'Employee', Phone: '9876543210' },
+    { Name: 'Jane Doe', Username: 'jane.doe', Password: 'Passw0rd!', Role: 'Employee', Phone: '9876543210', Email: 'jane.doe@example.com' },
   ]);
   XLSX.utils.book_append_sheet(wb, ws, 'Users');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -172,7 +192,7 @@ router.get('/bulk/template', (req, res) => {
 router.put('/:id', (req, res) => {
   const target = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
   if (!target) return res.status(404).json({ error: 'User not found.' });
-  const { name, username, phone, role, status, password } = req.body;
+  const { name, username, phone, role, status, password, email } = req.body;
 
   if (name !== undefined && !String(name).trim()) {
     return res.status(422).json({ error: 'Full name cannot be empty.' });
@@ -183,6 +203,9 @@ router.put('/:id', (req, res) => {
   if (password && password.length < 6) {
     return res.status(422).json({ error: 'Password must be at least 6 characters.' });
   }
+  if (email !== undefined && String(email).trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+    return res.status(422).json({ error: 'Please enter a valid email address.' });
+  }
 
   let finalUsername = target.username;
   if (username !== undefined && String(username).trim() && String(username).trim() !== target.username) {
@@ -191,11 +214,20 @@ router.put('/:id', (req, res) => {
     finalUsername = String(username).trim();
   }
 
+  let finalEmail = target.email;
+  if (email !== undefined) {
+    finalEmail = String(email).trim() ? String(email).trim().toLowerCase() : null;
+    if (finalEmail) {
+      const emailClash = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id != ?').get(finalEmail, target.id);
+      if (emailClash) return res.status(409).json({ error: 'That email is already in use by another account.' });
+    }
+  }
+
   const roleKey = role ? ensureRole(role) : target.role;
 
   db.prepare(
-    `UPDATE users SET name = ?, username = ?, phone = ?, role = ?, status = ?, updated_at = datetime('now') WHERE id = ?`
-  ).run(name ?? target.name, finalUsername, phone ?? target.phone, roleKey, status ?? target.status, target.id);
+    `UPDATE users SET name = ?, username = ?, phone = ?, role = ?, status = ?, email = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(name ?? target.name, finalUsername, phone ?? target.phone, roleKey, status ?? target.status, finalEmail, target.id);
 
   if (password) {
     const hash = bcrypt.hashSync(password, BCRYPT_ROUNDS());
@@ -203,7 +235,7 @@ router.put('/:id', (req, res) => {
   }
 
   logAudit({ userId: req.user.id, username: req.user.username, action: 'UPDATE', module: 'users', recordId: target.id, ip: req.ip });
-  const user = db.prepare('SELECT id, name, username, role, phone, status FROM users WHERE id = ?').get(target.id);
+  const user = db.prepare('SELECT id, name, username, role, phone, email, status FROM users WHERE id = ?').get(target.id);
   res.json({ user });
 });
 

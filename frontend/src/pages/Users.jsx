@@ -4,14 +4,14 @@
 // the fly) that follow RBAC end to end.
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  UserCog, Plus, Pencil, Trash2, UploadCloud, Download, Filter, X, Search,
+  UserCog, Plus, Pencil, Trash2, UploadCloud, Download, Filter, X, Search, Mail,
 } from 'lucide-react';
 import Layout from '../components/Layout.jsx';
 import { Modal, Badge, Spinner, EmptyState, ConfirmDialog, Combobox } from '../components/UI.jsx';
 import client from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
-const emptyForm = { name: '', username: '', password: '', role: '', phone: '', status: 'active' };
+const emptyForm = { name: '', username: '', password: '', role: '', phone: '', email: '', status: 'active' };
 
 const STATUS_TONE = { active: 'green', blocked: 'red' };
 
@@ -85,7 +85,7 @@ export default function Users() {
 
   function openEdit(u) {
     setEditUser(u);
-    setForm({ name: u.name, username: u.username, password: '', role: u.role, phone: u.phone || '', status: u.status });
+    setForm({ name: u.name, username: u.username, password: '', role: u.role, phone: u.phone || '', email: u.email || '', status: u.status });
     setError('');
     setShowForm(true);
   }
@@ -110,11 +110,11 @@ export default function Users() {
     setSaving(true);
     try {
       if (editUser) {
-        const payload = { name: form.name, username: form.username, role: form.role, phone: form.phone, status: form.status };
+        const payload = { name: form.name, username: form.username, role: form.role, phone: form.phone, email: form.email.trim(), status: form.status };
         if (form.password) payload.password = form.password;
         await client.put(`/users/${editUser.id}`, payload);
       } else {
-        await client.post('/users', { name: form.name, username: form.username, password: form.password, role: form.role, phone: form.phone });
+        await client.post('/users', { name: form.name, username: form.username, password: form.password, role: form.role, phone: form.phone, email: form.email.trim() });
       }
       setShowForm(false);
       setForm(emptyForm);
@@ -235,6 +235,7 @@ export default function Users() {
                 <th className="px-4 py-3">Username</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Phone</th>
+                <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
@@ -246,6 +247,7 @@ export default function Users() {
                   <td className="px-4 py-3 text-slate-400">{u.username}</td>
                   <td className="px-4 py-3"><Badge tone={u.role === 'admin' ? 'blue' : 'slate'}>{roleLabel(u.role)}</Badge></td>
                   <td className="px-4 py-3 text-slate-400">{u.phone || '-'}</td>
+                  <td className="px-4 py-3 text-slate-400">{u.email || <span className="text-slate-600 italic">not set</span>}</td>
                   <td className="px-4 py-3"><Badge tone={STATUS_TONE[u.status] || 'slate'}>{u.status}</Badge></td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
@@ -322,6 +324,19 @@ export default function Users() {
                 <input className="input" autoComplete="off" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
               </div>
             </div>
+            <div>
+              <label className="label">Email <span className="text-slate-600 font-normal">(optional — needed for this user to use Forgot Password)</span></label>
+              <div className="relative">
+                <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  type="email"
+                  className="input pl-9"
+                  autoComplete="off"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+            </div>
             {editUser && (
               <div>
                 <label className="label">Status</label>
@@ -343,7 +358,7 @@ export default function Users() {
         <Modal title="Bulk Upload Users" onClose={closeBulk}>
           <div className="space-y-4">
             <p className="text-sm text-slate-400">
-              Upload a CSV or Excel file with columns <span className="text-slate-200 font-medium">Name, Username, Password, Role, Phone</span>.
+              Upload a CSV or Excel file with columns <span className="text-slate-200 font-medium">Name, Username, Password, Role, Phone</span>, and optionally <span className="text-slate-200 font-medium">Email</span>.
               Unknown roles are created automatically.
             </p>
             <button type="button" onClick={downloadTemplate} className="btn-secondary flex items-center gap-2 text-sm">

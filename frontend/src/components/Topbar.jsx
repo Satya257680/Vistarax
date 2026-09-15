@@ -1,20 +1,31 @@
-// VistaraX - Topbar: search, notifications bell, profile menu, logout
+// VistaraX - Topbar: live quick-search, notifications bell, profile menu, logout
 import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Bell, LogOut, User, Wifi, WifiOff, Menu } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Search, Bell, LogOut, User, Wifi, WifiOff, Menu, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useSocket } from '../context/SocketContext.jsx';
-import client from '../api/client.js';
-import { ConfirmDialog } from './UI.jsx';
+import client, { API_URL } from '../api/client.js';
+import { ConfirmDialog, Badge } from './UI.jsx';
 
-export default function Topbar({ onSearch, onOpenMenu }) {
+export default function Topbar({ onOpenMenu }) {
   const { user, logout } = useAuth();
   const { connected } = useSocket();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [unread, setUnread] = useState(0);
   const menuRef = useRef(null);
+
+  // --- Quick search: type 2+ characters and a live dropdown of matching
+  // visitors (name, contact, purpose...) appears; press Enter or click
+  // "See all results" to open the full Visitors list pre-filtered; click a
+  // result to jump straight to that visitor's profile.
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -32,10 +43,59 @@ export default function Topbar({ onSearch, onOpenMenu }) {
   useEffect(() => {
     function onClick(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+      if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false);
     }
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
+
+  // Close the dropdown and clear the query whenever we navigate away.
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setSearching(false);
+      return undefined;
+    }
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await client.get('/visitors', { params: { q, pageSize: 6 } });
+        setResults(data.data);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  function goToVisitor(id) {
+    setSearchOpen(false);
+    setQuery('');
+    navigate(`/visitors?focus=${id}`);
+  }
+
+  function seeAllResults() {
+    const q = query.trim();
+    if (!q) return;
+    setSearchOpen(false);
+    navigate(`/visitors?q=${encodeURIComponent(q)}`);
+  }
+
+  function onSearchKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      seeAllResults();
+    } else if (e.key === 'Escape') {
+      setSearchOpen(false);
+    }
+  }
 
   return (
     <header className="sticky top-0 z-30 glass border-b border-white/10 px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
@@ -49,13 +109,60 @@ export default function Topbar({ onSearch, onOpenMenu }) {
 
       <img src="/vistarax-logo.png" alt="VistaraX" className="lg:hidden h-8 w-8 rounded-lg shrink-0" />
 
-      <div className="flex-1 max-w-md relative">
+      <div className="flex-1 max-w-md relative" ref={searchRef}>
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
         <input
           placeholder="Search visitors, contacts, purpose..."
-          className="input pl-9"
-          onChange={(e) => onSearch && onSearch(e.target.value)}
+          className="input pl-9 pr-9"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setSearchOpen(true); }}
+          onFocus={() => query.trim().length >= 2 && setSearchOpen(true)}
+          onKeyDown={onSearchKeyDown}
         />
+        {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 animate-spin" />}
+        {!searching && query && (
+          <button
+            onClick={() => { setQuery(''); setResults([]); setSearchOpen(false); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+            aria-label="Clear search"
+          >
+            <X size={14} />
+          </button>
+        )}
+
+        {searchOpen && query.trim().length >= 2 && (
+          <div className="absolute left-0 right-0 mt-2 glass-strong rounded-xl shadow-glass overflow-hidden z-40 animate-fade-in">
+            {results.length > 0 ? (
+              <>
+                <div className="max-h-80 overflow-y-auto">
+                  {results.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => goToVisitor(v.id)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition"
+                    >
+                      <div className="h-8 w-8 rounded-lg overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center text-[11px] text-slate-500 font-semibold shrink-0">
+                        {v.photo_url ? <img src={`${API_URL}${v.photo_url}`} alt={v.name} className="h-full w-full object-cover" /> : v.name[0]}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-slate-100 font-medium truncate">{v.name}</p>
+                        <p className="text-xs text-slate-500 truncate">{v.contact_no} · {v.whom_to_visit}</p>
+                      </div>
+                      <Badge tone={v.status === 'inside' ? 'green' : 'slate'}>{v.status === 'inside' ? 'Inside' : 'Out'}</Badge>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={seeAllResults} className="w-full text-center px-4 py-2.5 text-xs font-medium text-accent-blue hover:bg-white/5 border-t border-white/10 transition">
+                  See all results for "{query.trim()}"
+                </button>
+              </>
+            ) : !searching ? (
+              <p className="px-4 py-4 text-sm text-slate-500 text-center">No visitors match "{query.trim()}".</p>
+            ) : (
+              <p className="px-4 py-4 text-sm text-slate-500 text-center">Searching...</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 ml-auto">

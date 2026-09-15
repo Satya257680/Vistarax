@@ -36,6 +36,9 @@ const userValidators = [
   // already exist by key or label. We only enforce that something was sent.
   body('role').trim().isLength({ min: 1, max: 60 }),
   body('phone').trim().isLength({ min: 6, max: 20 }).matches(/^[0-9+\-\s()]+$/),
+  // Optional, but if given it must look like an email - this is what lets an
+  // account use the self-service "Forgot Password" screen later.
+  body('email').optional({ checkFalsy: true }).trim().isEmail().isLength({ max: 150 }),
 ];
 
 module.exports = { handleValidation, loginValidators, visitorValidators, userValidators };

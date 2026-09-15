@@ -1,5 +1,6 @@
 // VistaraX - All Visitors: search, filter, add/edit, delete (single & all), export, print
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Download, Printer, Trash2, Filter, FileSpreadsheet, FileText, File as FileIcon, UserPlus } from 'lucide-react';
 import Layout from '../components/Layout.jsx';
 import VisitorTable from '../components/VisitorTable.jsx';
@@ -13,20 +14,35 @@ import { useSocket } from '../context/SocketContext.jsx';
 export default function Visitors() {
   const { isAdmin } = useAuth();
   const { socket } = useSocket();
+  // The topbar quick-search deep-links here with ?q=... (open the list
+  // pre-filtered) or ?focus=<id> (jump straight to that visitor's profile).
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(() => searchParams.get('q') || '');
   const [status, setStatus] = useState('all');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editVisitor, setEditVisitor] = useState(null);
-  const [viewId, setViewId] = useState(null);
+  const [viewId, setViewId] = useState(() => {
+    const focus = searchParams.get('focus');
+    return focus ? Number(focus) : null;
+  });
   const [deleteId, setDeleteId] = useState(null);
   const [deleteAll, setDeleteAll] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [checkoutTarget, setCheckoutTarget] = useState(null);
   const pageSize = 10;
+
+  // Once the deep-link has been consumed, drop it from the URL so it
+  // doesn't re-trigger (e.g. re-open the drawer) on a later back/refresh.
+  useEffect(() => {
+    if (searchParams.get('q') || searchParams.get('focus')) {
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);

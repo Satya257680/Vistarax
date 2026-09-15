@@ -176,6 +176,21 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   }
 })();
 
+// --- Migration: add users.email so an account can be identified by
+// role + username + email for the self-service "Forgot Password" flow.
+// Nullable (older/unassigned accounts simply can't use that flow until an
+// admin sets one), and uniquely indexed below - SQLite's UNIQUE index
+// allows any number of NULLs, so accounts without an email never collide.
+(function migrateUserEmailColumn() {
+  const cols = db.prepare(`PRAGMA table_info(users)`).all();
+  if (cols.length && !cols.some((c) => c.name === 'email')) {
+    db.exec(`ALTER TABLE users ADD COLUMN email TEXT`);
+    // eslint-disable-next-line no-console
+    console.log('[VistaraX] Added users.email column.');
+  }
+})();
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+
 // Seed default settings row
 const settingsRow = db.prepare('SELECT id FROM settings WHERE id = 1').get();
 if (!settingsRow) {
@@ -202,11 +217,12 @@ function seedAdmin() {
     const username = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
     const password = process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeMe@123';
     const name = process.env.DEFAULT_ADMIN_NAME || 'System Admin';
+    const email = process.env.DEFAULT_ADMIN_EMAIL || null;
     const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const hash = bcrypt.hashSync(password, rounds);
     db.prepare(
-      `INSERT INTO users (name, username, password_hash, role, status) VALUES (?, ?, ?, 'admin', 'active')`
-    ).run(name, username, hash);
+      `INSERT INTO users (name, username, password_hash, role, status, email) VALUES (?, ?, ?, 'admin', 'active', ?)`
+    ).run(name, username, hash, email);
     // eslint-disable-next-line no-console
     console.log(`[VistaraX] Seeded default admin user "${username}". Please log in and change the password immediately.`);
   }
