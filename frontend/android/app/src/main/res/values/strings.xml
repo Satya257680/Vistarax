@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VistaraX</string>
+    <string name="title_activity_main">VistaraX</string>
+    <string name="package_name">com.vistarax.app</string>
+    <string name="custom_url_scheme">com.vistarax.app</string>
+</resources>
