@@ -1,6 +1,6 @@
 // VistaraX - Dashboard: KPI cards + visitor activity chart + currently inside + recent entries
 import React, { useEffect, useState, useCallback } from 'react';
-import { Users, DoorOpen, CheckCircle2, CalendarDays } from 'lucide-react';
+import { Users, DoorOpen, CheckCircle2, CalendarDays, Clock, CalendarClock, BadgeCheck } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import Layout from '../components/Layout.jsx';
 import { StatCard, Spinner, CheckoutDialog } from '../components/UI.jsx';
@@ -12,9 +12,31 @@ import { useSocket } from '../context/SocketContext.jsx';
 
 const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#22d3ee', '#f59e0b', '#10b981'];
 
+// Human-readable label for each system role, used in the welcome grid's
+// "designation" pill (e.g. entry_boy -> "Entry Boy").
+const ROLE_LABELS = {
+  admin: 'Admin',
+  manager: 'Manager',
+  entry_boy: 'Entry Boy',
+  entry_girl: 'Entry Girl',
+  employee: 'Employee',
+};
+
+// A small live clock, ticking every second - powers the welcome grid's
+// time/date/day tiles without re-rendering the whole dashboard.
+function useNow() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return now;
+}
+
 export default function Dashboard() {
   const { user, isAdmin } = useAuth();
   const { socket } = useSocket();
+  const now = useNow();
   const [stats, setStats] = useState(null);
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +82,12 @@ export default function Dashboard() {
     );
   }
 
-  const hour = new Date().getHours();
+  const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const designation = ROLE_LABELS[user?.role] || user?.role;
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = now.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
+  const dayStr = now.toLocaleDateString([], { weekday: 'long' });
 
   return (
     <Layout>
@@ -69,6 +95,40 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-white">{greeting}, {user?.name?.split(' ')[0]} 👋</h1>
           <p className="text-sm text-slate-500 mt-1">Here's what's happening at your front desk today.</p>
+        </div>
+      </div>
+
+      {/* Welcome grid: who's signed in + a live clock/date/day, modeled on
+          the front-desk "welcome" card pattern - kept in VistaraX's own
+          dark glass theme rather than copying any reference site's look. */}
+      <div className="card p-5 mb-6 grid sm:grid-cols-[1.2fr_1px_1fr_1fr_1fr] gap-4 sm:gap-0 items-center bg-gradient-to-r from-accent-blue/10 via-transparent to-accent-violet/10">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-accent-blue to-accent-violet flex items-center justify-center text-white font-bold text-lg shrink-0">
+            {user?.name?.[0]?.toUpperCase() || 'U'}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
+            <span className="inline-flex items-center gap-1 text-[11px] text-accent-cyan mt-0.5">
+              <BadgeCheck size={12} /> {designation}
+            </span>
+          </div>
+        </div>
+
+        <div className="hidden sm:block h-12 w-px bg-white/10 mx-auto" />
+
+        <div className="flex sm:flex-col items-center sm:items-start gap-2 sm:gap-0.5 sm:pl-6">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500"><Clock size={11} /> Time</span>
+          <span className="text-sm font-semibold text-white font-mono tabular-nums">{timeStr}</span>
+        </div>
+
+        <div className="flex sm:flex-col items-center sm:items-start gap-2 sm:gap-0.5 sm:pl-6">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500"><CalendarClock size={11} /> Date</span>
+          <span className="text-sm font-semibold text-white">{dateStr}</span>
+        </div>
+
+        <div className="flex sm:flex-col items-center sm:items-start gap-2 sm:gap-0.5 sm:pl-6">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-slate-500"><CalendarDays size={11} /> Day</span>
+          <span className="text-sm font-semibold text-white">{dayStr}</span>
         </div>
       </div>
 

@@ -5,9 +5,10 @@ import React, { useState } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
 import {
   ShieldCheck, Eye, EyeOff, Lock, UserRound, ArrowRight, Camera,
-  DoorOpen, BarChart3, BadgeCheck,
+  DoorOpen, BarChart3, BadgeCheck, Download, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import usePwaInstall from '../hooks/usePwaInstall.js';
 
 const HIGHLIGHTS = [
   { icon: Camera, text: 'Photo-verified check-ins at every entry' },
@@ -24,6 +25,7 @@ export default function Login() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const { canInstall, installed, promptInstall } = usePwaInstall();
 
   if (!loading && user) return <Navigate to="/dashboard" replace />;
 
@@ -157,6 +159,26 @@ export default function Login() {
                 {busy ? 'Signing in...' : (<>Sign In <ArrowRight size={16} /></>)}
               </button>
             </form>
+
+            {/* Install as an app - real beforeinstallprompt flow (see
+                hooks/usePwaInstall.js), only shown when the browser has
+                actually offered it. There's no browser API to uninstall a
+                PWA from JS, so once installed we just confirm that instead
+                of faking an "uninstall" button. */}
+            {canInstall && (
+              <button
+                type="button"
+                onClick={promptInstall}
+                className="btn-secondary w-full mt-4 py-2.5 flex items-center justify-center gap-2 text-sm"
+              >
+                <Download size={15} /> Install VistaraX as an app
+              </button>
+            )}
+            {installed && (
+              <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 mt-4">
+                <CheckCircle2 size={13} /> Installed as an app on this device
+              </p>
+            )}
 
             <p className="text-[11px] text-slate-600 text-center mt-6 leading-relaxed">
               Protected by JWT authentication, bcrypt password hashing, and role-based access control.

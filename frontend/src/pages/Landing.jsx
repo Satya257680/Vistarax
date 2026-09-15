@@ -1,14 +1,14 @@
 // VistaraX - Public landing page. This is intentionally the very first
-// stop for any link into the app: Landing -> Login -> Dashboard. It never
-// auto-redirects a signed-in visitor away (they can simply click "Go to
-// Dashboard"), so the flow the product asked for always holds.
+// stop for any link into the app: Landing -> Login -> Dashboard. The CTA
+// always says "Sign In" and always routes to /login — even for a visitor
+// who already has a session — so the app can never be entered by skipping
+// the login step.
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Sparkles, Camera, DoorOpen, Bell, BarChart3, KeyRound, MapPin,
   UploadCloud, Download, LayoutDashboard, ShieldCheck, Linkedin, Menu, X,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext.jsx';
 
 const FEATURES = [
   { icon: Camera, title: 'Photo Check-In', desc: 'Every visitor is photographed the moment they arrive, tied straight to their record.' },
@@ -29,8 +29,13 @@ const STAT_TILES = [
 
 const LEADERSHIP = [
   { name: 'G.B Singh', role: 'Chairman', photo: '/team/gb-singh.jpg' },
-  { name: 'Gian Singh', role: 'Managing Director', photo: '/team/gian-singh.jpg' },
-  { name: 'Vijay Sharma', role: 'IT Head', initials: 'VS' },
+  {
+    name: 'Gian Singh',
+    role: 'Managing Director',
+    photo: '/team/gian-singh.jpg',
+    linkedin: 'https://www.linkedin.com/in/gian-singh-14a2aa112/',
+  },
+  { name: 'Balwant Singh', role: 'Director, Jawandsons Group', photo: '/team/balwant-singh.jpg' },
 ];
 
 const TEAM = [
@@ -39,22 +44,25 @@ const TEAM = [
     role: 'Lead Developer',
     photo: '/team/satyajit-nayak.jpg',
     bio: 'Designs and builds VistaraX end-to-end — every module, screen and integration in this system.',
+    linkedin: 'https://www.linkedin.com/in/satyajit-nayak-981185247/',
   },
   {
-    name: 'Gian Singh',
-    role: 'Managing Director',
-    photo: '/team/gian-singh.jpg',
-    bio: 'Sets the direction for the Jawandsons Group and the systems, like VistaraX, that run it.',
+    name: 'Vijay Sharma',
+    role: 'IT Head',
+    initials: 'VS',
+    bio: 'Oversees IT infrastructure and systems for the Jawandsons Group, including VistaraX.',
   },
 ];
 
 export default function Landing() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [mobileNav, setMobileNav] = useState(false);
 
-  const primaryLabel = user ? 'Go to Dashboard' : 'Sign In to Dashboard';
-  const primaryTarget = user ? '/dashboard' : '/login';
+  // Always "Sign In", always to /login — never a "Go to Dashboard" shortcut,
+  // even for a visitor who already has a session. Logging in is the only
+  // door into the app.
+  const primaryLabel = 'Sign In';
+  const primaryTarget = '/login';
 
   return (
     <div className="min-h-screen bg-base-950 bg-grid-glow text-slate-200">
@@ -237,6 +245,16 @@ export default function Landing() {
               </div>
               <h3 className="text-white font-semibold mt-4">{p.name}</h3>
               <p className="text-xs text-accent-blue font-medium mt-0.5">{p.role}</p>
+              {p.linkedin && (
+                <a
+                  href={p.linkedin}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent-blue transition mt-3"
+                >
+                  <Linkedin size={13} /> LinkedIn
+                </a>
+              )}
             </div>
           ))}
         </div>
@@ -253,16 +271,29 @@ export default function Landing() {
           {TEAM.map((p) => (
             <div key={`${p.name}-${p.role}`} className="card p-6 text-center">
               <div className="h-24 w-24 rounded-full overflow-hidden mx-auto border-2 border-accent-blue/40">
-                <img src={p.photo} alt={p.name} className="h-full w-full object-cover" />
+                {p.photo ? (
+                  <img src={p.photo} alt={p.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-accent-blue to-accent-violet">
+                    {p.initials}
+                  </div>
+                )}
               </div>
               <h3 className="text-white font-semibold mt-4">{p.name}</h3>
               <p className="text-xs text-accent-blue font-medium mt-0.5">{p.role}</p>
               <p className="text-xs text-slate-500 mt-2 leading-relaxed">{p.bio}</p>
-              <div className="flex justify-center mt-3">
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                  <Linkedin size={13} /> LinkedIn
-                </span>
-              </div>
+              {p.linkedin && (
+                <div className="flex justify-center mt-3">
+                  <a
+                    href={p.linkedin}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent-blue transition"
+                  >
+                    <Linkedin size={13} /> LinkedIn
+                  </a>
+                </div>
+              )}
             </div>
           ))}
         </div>

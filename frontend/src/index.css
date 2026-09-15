@@ -56,6 +56,19 @@ body {
   @apply block text-xs font-medium text-slate-400 mb-1.5;
 }
 
+/* Native <select> popups (the dropdown of <option>s) are rendered by the
+   OS/browser using its own light theme, not our page CSS — so options
+   inherited our light `.input` text color on a white popup background and
+   were nearly invisible. Force dark, readable text on every option. */
+select.input {
+  color-scheme: light;
+}
+select.input option,
+select.input optgroup {
+  color: #0f172a;
+  background-color: #ffffff;
+}
+
 .card {
   @apply glass rounded-2xl shadow-glass;
 }
