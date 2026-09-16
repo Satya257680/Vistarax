@@ -118,19 +118,19 @@ export default function Login() {
                 <ShieldCheck size={28} className="text-white" />
               </div>
               <h1 className="text-2xl font-bold text-white tracking-tight">VistaraX</h1>
-              <p className="text-xs text-slate-500 tracking-widest uppercase mt-1">Visitor Management System</p>
+              <p className="text-xs text-accent-cyan tracking-widest uppercase mt-1">Visitor Management System</p>
             </div>
 
             <img src="/brand/jawandsons-logo.png" alt="Jawandsons" className="h-12 w-12 object-contain mx-auto mb-4" />
 
             <h2 className="text-xl font-semibold text-white mb-1 text-center">Welcome back</h2>
-            <p className="text-sm text-slate-500 mb-6 text-center">Sign in to access the reception dashboard</p>
+            <p className="text-sm text-red-400 font-medium mb-6 text-center">Sign in to access the reception dashboard</p>
 
             {error && <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 mb-4">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="label">Username</label>
+                <label className="label text-accent-cyan">Username</label>
                 <div className="relative">
                   <UserRound size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -144,7 +144,7 @@ export default function Login() {
                 </div>
               </div>
               <div>
-                <label className="label">Password</label>
+                <label className="label text-accent-cyan">Password</label>
                 <div className="relative">
                   <Lock size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -161,7 +161,7 @@ export default function Login() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-slate-400 select-none cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-amber-300 select-none cursor-pointer">
                 <input
                   type="checkbox"
                   checked={remember}
@@ -216,12 +216,12 @@ export default function Login() {
               </p>
             )}
 
-            <p className="text-[11px] text-slate-600 text-center mt-6 leading-relaxed">
+            <p className="text-[11px] text-violet-300 text-center mt-6 leading-relaxed">
               Protected by JWT authentication, bcrypt password hashing, and role-based access control.
             </p>
 
-            <p className="text-xs text-slate-600 text-center mt-4">
-              <Link to="/" className="hover:text-slate-400 transition">← Back to VistaraX home</Link>
+            <p className="text-center mt-4">
+              <Link to="/" className="text-xs font-medium text-accent-blue hover:text-accent-cyan hover:underline transition">← Back to VistaraX home</Link>
             </p>
           </div>
         </div>

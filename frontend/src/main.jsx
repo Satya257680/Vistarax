@@ -1,3 +1,9 @@
+// Imported first and purely for its side effect: it registers the
+// `beforeinstallprompt` listener at module-evaluation time, before
+// anything else on this page (including React and the boot splash) has a
+// chance to run - see pwaInstallStore.js for why that ordering matters.
+import './pwaInstallStore.js';
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';

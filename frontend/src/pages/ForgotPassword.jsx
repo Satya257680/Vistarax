@@ -107,7 +107,7 @@ export default function ForgotPassword() {
             <ShieldCheck size={28} className="text-white" />
           </Link>
           <h1 className="text-2xl font-bold text-white tracking-tight">VistaraX</h1>
-          <p className="text-xs text-slate-500 tracking-widest uppercase mt-1">Account Recovery</p>
+          <p className="text-xs text-accent-cyan tracking-widest uppercase mt-1">Account Recovery</p>
         </div>
 
         <div className="glass-strong rounded-2xl p-7 shadow-glass">
@@ -119,32 +119,32 @@ export default function ForgotPassword() {
           {step === 'identify' && (
             <>
               <h2 className="text-lg font-semibold text-white mb-1 flex items-center gap-2"><KeyRound size={18} /> Forgot your password?</h2>
-              <p className="text-sm text-slate-500 mb-6">Confirm your role, username and the email on file to continue.</p>
+              <p className="text-sm text-violet-300 mb-6">Confirm your role, username and the email on file to continue.</p>
 
               {error && <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 mb-4">{error}</div>}
 
               <form onSubmit={handleVerify} className="space-y-4">
                 <div>
-                  <label className="label">Role</label>
+                  <label className="label text-accent-cyan">Role</label>
                   <select className="input" value={role} onChange={(e) => setRole(e.target.value)} required>
                     <option value="" disabled>Select your role...</option>
                     {ROLE_OPTIONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="label">Username</label>
+                  <label className="label text-accent-cyan">Username</label>
                   <div className="relative">
                     <UserRound size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input className="input input-with-icon" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
                   </div>
                 </div>
                 <div>
-                  <label className="label">Email Address</label>
+                  <label className="label text-accent-cyan">Email Address</label>
                   <div className="relative">
                     <Mail size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input type="email" className="input input-with-icon" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
-                  <p className="text-[11px] text-slate-600 mt-1.5">Must match the email an administrator has on your account.</p>
+                  <p className="text-[11px] text-red-400 font-medium mt-1.5">Must match the email an administrator has on your account.</p>
                 </div>
 
                 <button type="submit" disabled={busy} className="btn-primary w-full mt-2 py-2.5 flex items-center justify-center gap-2">
@@ -165,7 +165,7 @@ export default function ForgotPassword() {
 
               <form onSubmit={handleReset} className="space-y-4">
                 <div>
-                  <label className="label">New Password</label>
+                  <label className="label text-accent-cyan">New Password</label>
                   <div className="relative">
                     <Lock size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
@@ -186,7 +186,7 @@ export default function ForgotPassword() {
                   <p className="text-[11px] text-slate-600 mt-1.5">{PW_MIN}–{PW_MAX} characters.</p>
                 </div>
                 <div>
-                  <label className="label">Confirm New Password</label>
+                  <label className="label text-accent-cyan">Confirm New Password</label>
                   <div className="relative">
                     <Lock size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
@@ -234,14 +234,19 @@ export default function ForgotPassword() {
         </div>
 
         {step !== 'done' && (
-          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-600 mt-5">
-            <ShieldAlert size={12} />
+          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 mt-5">
+            <ShieldAlert size={12} className="text-amber-400 shrink-0" />
             <span>An administrator can set or update the email on your account from Users.</span>
           </div>
         )}
 
-        <p className="text-xs text-slate-600 text-center mt-5">
-          <Link to="/login" className="hover:text-slate-400 transition inline-flex items-center gap-1.5"><ArrowLeft size={12} /> Back to Sign In</Link>
+        <p className="text-center mt-5">
+          <Link
+            to="/login"
+            className="text-xs font-medium text-accent-blue hover:text-accent-cyan hover:underline transition inline-flex items-center gap-1.5"
+          >
+            <ArrowLeft size={12} /> Back to Sign In
+          </Link>
         </p>
       </div>
     </div>

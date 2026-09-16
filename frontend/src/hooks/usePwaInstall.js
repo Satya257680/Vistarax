@@ -1,61 +1,23 @@
-// VistaraX - PWA install-state hook. Wraps the real `beforeinstallprompt`
-// browser API - there's no fake "uninstall" here: browsers don't expose a
-// JS API to uninstall an installed PWA, so instead of faking a button we
-// detect when the app is already running standalone (i.e. installed) and
-// show honest instructions for removing it from the OS/browser instead.
+// VistaraX - PWA install-state hook. Thin React wrapper around the
+// module-level singleton in ../pwaInstallStore.js, which is what actually
+// listens for `beforeinstallprompt` (see that file for why it has to be
+// captured outside of any component's lifecycle). There's no fake
+// "uninstall" here either - browsers don't expose a JS API to uninstall a
+// PWA, so instead of faking a button we just detect when the app is
+// already running standalone (i.e. installed) and confirm that.
 import { useEffect, useState, useCallback } from 'react';
-
-function isStandalone() {
-  if (typeof window === 'undefined') return false;
-  return (
-    window.matchMedia?.('(display-mode: standalone)')?.matches ||
-    window.navigator.standalone === true // iOS Safari
-  );
-}
+import { getSnapshot, subscribe, triggerInstall } from '../pwaInstallStore.js';
 
 export default function usePwaInstall() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [installed, setInstalled] = useState(isStandalone);
-  const [supported, setSupported] = useState(false);
+  const [state, setState] = useState(getSnapshot);
 
-  useEffect(() => {
-    function onBeforeInstallPrompt(e) {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setSupported(true);
-    }
-    function onAppInstalled() {
-      setInstalled(true);
-      setDeferredPrompt(null);
-    }
-    const mq = window.matchMedia?.('(display-mode: standalone)');
-    function onDisplayModeChange(e) {
-      setInstalled(e.matches);
-    }
+  useEffect(() => subscribe(() => setState(getSnapshot())), []);
 
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-    window.addEventListener('appinstalled', onAppInstalled);
-    mq?.addEventListener?.('change', onDisplayModeChange);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', onAppInstalled);
-      mq?.removeEventListener?.('change', onDisplayModeChange);
-    };
-  }, []);
-
-  const promptInstall = useCallback(async () => {
-    if (!deferredPrompt) return 'unavailable';
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    if (outcome === 'accepted') setInstalled(true);
-    return outcome; // 'accepted' | 'dismissed'
-  }, [deferredPrompt]);
+  const promptInstall = useCallback(() => triggerInstall(), []);
 
   return {
-    canInstall: supported && !!deferredPrompt && !installed,
-    installed,
+    canInstall: state.canInstall,
+    installed: state.installed,
     promptInstall,
   };
 }

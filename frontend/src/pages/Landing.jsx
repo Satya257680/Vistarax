@@ -28,14 +28,15 @@ const STAT_TILES = [
 ];
 
 const LEADERSHIP = [
-  { name: 'G.B Singh', role: 'Chairman', photo: '/team/gb-singh.jpg' },
+  { name: 'G.B Singh', role: 'Chairman', photo: '/team/gb-singh.jpg', roleColor: 'text-amber-400' },
   {
     name: 'Gian Singh',
     role: 'Managing Director',
     photo: '/team/gian-singh.jpg',
     linkedin: 'https://www.linkedin.com/in/gian-singh-14a2aa112/',
+    roleColor: 'text-accent-blue',
   },
-  { name: 'Balwant Singh', role: 'Director, Jawandsons Group', photo: '/team/balwant-singh.jpg' },
+  { name: 'Balwant Singh', role: 'Director', photo: '/team/balwant-singh.jpg', roleColor: 'text-accent-violet' },
 ];
 
 export default function Landing() {
@@ -227,7 +228,7 @@ export default function Landing() {
                 )}
               </div>
               <h3 className="text-white font-semibold mt-4">{p.name}</h3>
-              <p className="text-xs text-accent-blue font-medium mt-0.5">{p.role}</p>
+              <p className={`text-xs font-medium mt-0.5 ${p.roleColor || 'text-accent-blue'}`}>{p.role}</p>
               {p.linkedin && (
                 <a
                   href={p.linkedin}
@@ -264,7 +265,7 @@ export default function Landing() {
             <img src="/vistarax-logo.png" alt="VistaraX" className="h-6 w-6 rounded-md" />
             <span className="text-sm text-slate-400">VistaraX</span>
           </div>
-          <p className="text-xs text-slate-600 text-center">© {new Date().getFullYear()} VistaraX. Jawandsons Private Limited. All rights reserved.</p>
+          <p className="text-xs text-orange-400 font-medium text-center">© {new Date().getFullYear()} VistaraX. Jawandsons Private Limited. All rights reserved.</p>
           <button onClick={() => navigate('/login')} className="text-xs text-accent-blue hover:underline">Sign In →</button>
         </div>
       </footer>
