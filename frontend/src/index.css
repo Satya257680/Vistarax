@@ -52,6 +52,22 @@ body {
   @apply w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-accent-blue/60 focus:ring-2 focus:ring-accent-blue/20 transition;
 }
 
+/* Inputs that have a leading icon (username/password/email fields) need
+   enough left padding that the icon never sits under the typed text -
+   this was previously pl-9 (36px), which is too tight once the icon's own
+   box (left-3 + size-16) is accounted for, so the first characters typed
+   rendered underneath the icon. field-icon marks the icon itself so it
+   never intercepts clicks/selection either. */
+.input-with-icon {
+  padding-left: 2.75rem !important;
+}
+.input-with-icon.pr-9 {
+  padding-right: 2.75rem !important;
+}
+.field-icon {
+  pointer-events: none;
+}
+
 .label {
   @apply block text-xs font-medium text-slate-400 mb-1.5;
 }

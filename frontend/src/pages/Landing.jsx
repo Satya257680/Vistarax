@@ -38,22 +38,6 @@ const LEADERSHIP = [
   { name: 'Balwant Singh', role: 'Director, Jawandsons Group', photo: '/team/balwant-singh.jpg' },
 ];
 
-const TEAM = [
-  {
-    name: 'Satyajit Nayak',
-    role: 'Lead Developer',
-    photo: '/team/satyajit-nayak.jpg',
-    bio: 'Designs and builds VistaraX end-to-end — every module, screen and integration in this system.',
-    linkedin: 'https://www.linkedin.com/in/satyajit-nayak-981185247/',
-  },
-  {
-    name: 'Vijay Sharma',
-    role: 'IT Head',
-    initials: 'VS',
-    bio: 'Oversees IT infrastructure and systems for the Jawandsons Group, including VistaraX.',
-  },
-];
-
 export default function Landing() {
   const navigate = useNavigate();
   const [mobileNav, setMobileNav] = useState(false);
@@ -80,7 +64,6 @@ export default function Landing() {
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
             <a href="#features" className="hover:text-white transition">What's Inside</a>
             <a href="#about" className="hover:text-white transition">About</a>
-            <a href="#team" className="hover:text-white transition">Team</a>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -101,7 +84,6 @@ export default function Landing() {
           <div className="md:hidden border-t border-white/10 px-4 py-4 space-y-3 glass animate-fade-in">
             <a href="#features" onClick={() => setMobileNav(false)} className="block text-sm text-slate-300 hover:text-white">What's Inside</a>
             <a href="#about" onClick={() => setMobileNav(false)} className="block text-sm text-slate-300 hover:text-white">About</a>
-            <a href="#team" onClick={() => setMobileNav(false)} className="block text-sm text-slate-300 hover:text-white">Team</a>
             <button onClick={() => navigate(primaryTarget)} className="btn-primary w-full text-sm py-2.5">{primaryLabel}</button>
           </div>
         )}
@@ -172,6 +154,7 @@ export default function Landing() {
       {/* FEATURES */}
       <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20 scroll-mt-20">
         <div className="text-center max-w-2xl mx-auto mb-12">
+          <img src="/brand/jawandsons-logo.png" alt="Jawandsons" className="h-14 w-14 object-contain mx-auto mb-4" />
           <span className="text-xs font-semibold tracking-widest uppercase text-accent-violet">What's Inside</span>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mt-3">Everything the front desk needs, built in.</h2>
           <p className="text-slate-400 mt-3">No paper registers, no separate spreadsheets. Just one portal that runs reception.</p>
@@ -260,45 +243,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* TEAM */}
-      <section id="team" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20 scroll-mt-20">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="text-xs font-semibold tracking-widest uppercase text-accent-blue">The People Behind It</span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mt-3">Small team, direct accountability.</h2>
-          <p className="text-slate-400 mt-3">No layers, no hand-offs — the people who build VistaraX and the people who run it are both reachable.</p>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {TEAM.map((p) => (
-            <div key={`${p.name}-${p.role}`} className="card p-6 text-center">
-              <div className="h-24 w-24 rounded-full overflow-hidden mx-auto border-2 border-accent-blue/40">
-                {p.photo ? (
-                  <img src={p.photo} alt={p.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-xl font-bold text-white bg-gradient-to-br from-accent-blue to-accent-violet">
-                    {p.initials}
-                  </div>
-                )}
-              </div>
-              <h3 className="text-white font-semibold mt-4">{p.name}</h3>
-              <p className="text-xs text-accent-blue font-medium mt-0.5">{p.role}</p>
-              <p className="text-xs text-slate-500 mt-2 leading-relaxed">{p.bio}</p>
-              {p.linkedin && (
-                <div className="flex justify-center mt-3">
-                  <a
-                    href={p.linkedin}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-accent-blue transition"
-                  >
-                    <Linkedin size={13} /> LinkedIn
-                  </a>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-20">
         <div className="glass-strong rounded-2xl p-8 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-glass">
@@ -320,7 +264,7 @@ export default function Landing() {
             <img src="/vistarax-logo.png" alt="VistaraX" className="h-6 w-6 rounded-md" />
             <span className="text-sm text-slate-400">VistaraX</span>
           </div>
-          <p className="text-xs text-slate-600 text-center">© {new Date().getFullYear()} VistaraX. A Jawandsons Group company. All rights reserved.</p>
+          <p className="text-xs text-slate-600 text-center">© {new Date().getFullYear()} VistaraX. Jawandsons Private Limited. All rights reserved.</p>
           <button onClick={() => navigate('/login')} className="text-xs text-accent-blue hover:underline">Sign In →</button>
         </div>
       </footer>

@@ -134,15 +134,15 @@ export default function ForgotPassword() {
                 <div>
                   <label className="label">Username</label>
                   <div className="relative">
-                    <UserRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input className="input pl-9" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
+                    <UserRound size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input className="input input-with-icon" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
                   </div>
                 </div>
                 <div>
                   <label className="label">Email Address</label>
                   <div className="relative">
-                    <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input type="email" className="input pl-9" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <Mail size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input type="email" className="input input-with-icon" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
                   <p className="text-[11px] text-slate-600 mt-1.5">Must match the email an administrator has on your account.</p>
                 </div>
@@ -167,10 +167,11 @@ export default function ForgotPassword() {
                 <div>
                   <label className="label">New Password</label>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <Lock size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type={showPw ? 'text' : 'password'}
-                      className="input pl-9 pr-9"
+                      className="input input-with-icon pr-9"
+                      autoComplete="new-password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       minLength={PW_MIN}
@@ -187,10 +188,11 @@ export default function ForgotPassword() {
                 <div>
                   <label className="label">Confirm New Password</label>
                   <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <Lock size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type={showPw2 ? 'text' : 'password'}
-                      className="input pl-9 pr-9"
+                      className="input input-with-icon pr-9"
+                      autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       minLength={PW_MIN}

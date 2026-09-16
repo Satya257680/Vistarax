@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import usePwaInstall from '../hooks/usePwaInstall.js';
+import SplashScreen from '../components/SplashScreen.jsx';
 
 const HIGHLIGHTS = [
   { icon: Camera, text: 'Photo-verified check-ins at every entry' },
@@ -25,9 +26,17 @@ export default function Login() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [installHint, setInstallHint] = useState(false);
+  const [postLoginSplash, setPostLoginSplash] = useState(false);
   const { canInstall, installed, promptInstall } = usePwaInstall();
 
   if (!loading && user) return <Navigate to="/dashboard" replace />;
+
+  // Every successful sign-in shows the same boot splash again before the
+  // dashboard mounts, matching the pattern on a hard refresh.
+  if (postLoginSplash) {
+    return <SplashScreen duration={2200} onComplete={() => navigate('/dashboard')} />;
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -35,7 +44,7 @@ export default function Login() {
     setBusy(true);
     try {
       await login(username, password, remember);
-      navigate('/dashboard');
+      setPostLoginSplash(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Unable to sign in. Please try again.');
     } finally {
@@ -112,8 +121,10 @@ export default function Login() {
               <p className="text-xs text-slate-500 tracking-widest uppercase mt-1">Visitor Management System</p>
             </div>
 
-            <h2 className="text-xl font-semibold text-white mb-1">Welcome back</h2>
-            <p className="text-sm text-slate-500 mb-6">Sign in to access the reception dashboard</p>
+            <img src="/brand/jawandsons-logo.png" alt="Jawandsons" className="h-12 w-12 object-contain mx-auto mb-4" />
+
+            <h2 className="text-xl font-semibold text-white mb-1 text-center">Welcome back</h2>
+            <p className="text-sm text-slate-500 mb-6 text-center">Sign in to access the reception dashboard</p>
 
             {error && <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5 mb-4">{error}</div>}
 
@@ -121,20 +132,25 @@ export default function Login() {
               <div>
                 <label className="label">Username</label>
                 <div className="relative">
-                  <UserRound size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input className="input pl-9" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
+                  <UserRound size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    className="input input-with-icon"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    autoFocus
+                    required
+                  />
                 </div>
               </div>
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="label !mb-0">Password</label>
-                  <Link to="/forgot-password" className="text-xs text-accent-blue hover:underline">Forgot password?</Link>
-                </div>
+                <label className="label">Password</label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <Lock size={16} className="field-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     type={showPw ? 'text' : 'password'}
-                    className="input pl-9 pr-9"
+                    className="input input-with-icon pr-9"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -160,19 +176,39 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Install as an app - real beforeinstallprompt flow (see
-                hooks/usePwaInstall.js), only shown when the browser has
-                actually offered it. There's no browser API to uninstall a
-                PWA from JS, so once installed we just confirm that instead
-                of faking an "uninstall" button. */}
-            {canInstall && (
+            <div className="text-center mt-4">
+              <Link to="/forgot-password" className="text-xs text-accent-blue hover:underline">Forgot password?</Link>
+            </div>
+
+            {/* Install as an app. The button is always visible and always
+                clickable, so anyone can install VistaraX straight from
+                here: when the browser has actually fired
+                beforeinstallprompt (see hooks/usePwaInstall.js) it opens
+                the real native install prompt; otherwise it shows quick
+                manual steps, since browsers that don't support the prompt
+                API still let a person install the PWA via their own
+                menu. There's no browser API to uninstall a PWA from JS,
+                so once installed we just confirm that instead of faking
+                an "uninstall" button. */}
+            {!installed && (
               <button
                 type="button"
-                onClick={promptInstall}
+                onClick={async () => {
+                  if (canInstall) {
+                    await promptInstall();
+                  } else {
+                    setInstallHint(true);
+                  }
+                }}
                 className="btn-secondary w-full mt-4 py-2.5 flex items-center justify-center gap-2 text-sm"
               >
                 <Download size={15} /> Install VistaraX as an app
               </button>
+            )}
+            {!installed && installHint && !canInstall && (
+              <p className="text-[11px] text-slate-500 text-center mt-2.5 leading-relaxed">
+                Open your browser menu and choose "Install app" / "Add to Home Screen" to install VistaraX.
+              </p>
             )}
             {installed && (
               <p className="flex items-center justify-center gap-1.5 text-xs text-emerald-400 mt-4">

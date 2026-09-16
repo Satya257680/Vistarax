@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SocketProvider } from './context/SocketContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import SplashScreen from './components/SplashScreen.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
@@ -16,6 +17,15 @@ import Settings from './pages/Settings.jsx';
 import Print from './pages/Print.jsx';
 
 export default function App() {
+  // Every fresh load (a hard refresh, or the very first visit) shows the
+  // boot splash before anything else renders - only then does the router
+  // resolve to Landing / Login / Dashboard, etc. per the URL.
+  const [booting, setBooting] = useState(true);
+
+  if (booting) {
+    return <SplashScreen onComplete={() => setBooting(false)} />;
+  }
+
   return (
     <SocketProvider>
       <Routes>
