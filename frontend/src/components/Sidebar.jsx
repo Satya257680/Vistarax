@@ -5,7 +5,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, DoorOpen, BarChart3, Bell, UserCog, Settings, KeyRound, X,
+  LayoutDashboard, UserPlus, DoorOpen, BarChart3, Bell, UserCog, Settings, KeyRound, X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -18,7 +18,7 @@ function SidebarContent({ onNavigate }) {
 
   const links = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/visitors', label: 'Visitors', icon: Users },
+    { to: '/visitors', label: 'Entry Point', icon: UserPlus },
     { to: '/currently-inside', label: 'Currently Inside', icon: DoorOpen },
     { to: '/reports', label: 'Reports', icon: BarChart3 },
     { to: '/notifications', label: 'Notifications', icon: Bell },
@@ -39,7 +39,7 @@ function SidebarContent({ onNavigate }) {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto">
+      <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-auto">
         <p className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Main</p>
         {links.map((l) => (
           <NavLink key={l.to} to={l.to} onClick={onNavigate} className={({ isActive }) => `${item} ${isActive ? active : inactive}`}>
