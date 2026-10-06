@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Badge, Spinner, CheckoutDialog } from './UI.jsx';
 import { googleMapsUrl } from './MapPicker.jsx';
 import client, { API_URL } from '../api/client.js';
-import { Phone, MessageCircle, MapPin, Clock, LogOut, Printer, Trash2, X, ZoomIn, ExternalLink } from 'lucide-react';
+import { Phone, MessageCircle, MapPin, Clock, LogOut, Printer, Trash2, X, ZoomIn, ExternalLink, ShieldCheck } from 'lucide-react';
 
 export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, canDelete }) {
   const [data, setData] = useState(null);
@@ -73,6 +73,7 @@ export default function VisitorProfileDrawer({ visitorId, onClose, onChanged, ca
 
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex items-center gap-2 text-slate-300"><Phone size={14} className="text-slate-500" /> {v.contact_no}</div>
+              <div className="flex items-center gap-2 text-slate-300"><ShieldCheck size={14} className="text-slate-500" /> Aadhaar: {v.aadhaar_no ? `XXXX XXXX ${String(v.aadhaar_no).slice(-4)}` : 'Not provided'}</div>
               {v.whatsapp_no && <div className="flex items-center gap-2 text-slate-300"><MessageCircle size={14} className="text-slate-500" /> {v.whatsapp_no}</div>}
               <div className="flex items-center gap-2 text-slate-300"><Clock size={14} className="text-slate-500" /> In: {new Date(v.checkin_time).toLocaleString()}</div>
               <div className="flex items-center gap-2 text-slate-300"><Clock size={14} className="text-slate-500" /> Out: {v.checkout_time ? new Date(v.checkout_time).toLocaleString() : '—'}</div>

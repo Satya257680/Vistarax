@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS visitors (
   name TEXT NOT NULL,
   contact_no TEXT NOT NULL,
   whatsapp_no TEXT,
+  aadhaar_no TEXT,
   companions TEXT,
   whom_to_visit TEXT NOT NULL,
   purpose TEXT,
@@ -167,6 +168,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 // --- Migration: add visitors.checkout_remarks for installs created before
 // the checkout-time notes feature existed. Plain ADD COLUMN - no foreign
 // keys involved, so this one is simple.
+// --- Migration: add visitors.aadhaar_no for mandatory identity capture on new entries.
+(function migrateVisitorAadhaarColumn() {
+  const cols = db.prepare(`PRAGMA table_info(visitors)`).all();
+  if (cols.length && !cols.some((c) => c.name === 'aadhaar_no')) {
+    db.exec(`ALTER TABLE visitors ADD COLUMN aadhaar_no TEXT`);
+    // eslint-disable-next-line no-console
+    console.log('[VistaraX] Added visitors.aadhaar_no column.');
+  }
+})();
+
 (function migrateVisitorCheckoutRemarks() {
   const cols = db.prepare(`PRAGMA table_info(visitors)`).all();
   if (cols.length && !cols.some((c) => c.name === 'checkout_remarks')) {

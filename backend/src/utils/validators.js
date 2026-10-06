@@ -18,6 +18,7 @@ const visitorValidators = [
   body('name').trim().isLength({ min: 1, max: 150 }),
   body('contact_no').trim().isLength({ min: 6, max: 20 }).matches(/^[0-9+\-\s()]+$/),
   body('whatsapp_no').optional({ checkFalsy: true }).trim().isLength({ max: 20 }),
+  body('aadhaar_no').trim().matches(/^\d{12}$/).withMessage('Aadhaar number must contain exactly 12 digits.'),
   body('whom_to_visit').trim().isLength({ min: 1, max: 150 }),
   body('purpose').optional({ checkFalsy: true }).trim().isLength({ max: 200 }),
   body('companions').optional({ checkFalsy: true }).trim().isLength({ max: 300 }),

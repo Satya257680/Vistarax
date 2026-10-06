@@ -32,10 +32,10 @@ router.get('/', (req, res) => {
 
   if (q) {
     clauses.push(
-      `(name LIKE ? OR contact_no LIKE ? OR whatsapp_no LIKE ? OR serial_no LIKE ? OR whom_to_visit LIKE ? OR purpose LIKE ? OR address LIKE ?)`
+      `(name LIKE ? OR contact_no LIKE ? OR whatsapp_no LIKE ? OR aadhaar_no LIKE ? OR serial_no LIKE ? OR whom_to_visit LIKE ? OR purpose LIKE ? OR address LIKE ?)`
     );
     const like = `%${q}%`;
-    params.push(like, like, like, like, like, like, like);
+    params.push(like, like, like, like, like, like, like, like);
   }
   if (status && status !== 'all') {
     clauses.push('status = ?');
@@ -142,7 +142,7 @@ router.post('/', upload.single('photo'), visitorValidators, handleValidation, (r
   const info = db
     .prepare(
       `INSERT INTO visitors
-        (serial_no, name, contact_no, whatsapp_no, companions, whom_to_visit, purpose,
+        (serial_no, name, contact_no, whatsapp_no, aadhaar_no, companions, whom_to_visit, purpose,
          checkin_time, photo_url, latitude, longitude, address, visit_date, visit_day, remarks, status, created_by)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'inside', ?)`
     )
@@ -151,6 +151,7 @@ router.post('/', upload.single('photo'), visitorValidators, handleValidation, (r
       b.name,
       b.contact_no,
       b.whatsapp_no || null,
+      b.aadhaar_no,
       b.companions || null,
       b.whom_to_visit,
       b.purpose || null,
@@ -183,6 +184,9 @@ router.put('/:id', upload.single('photo'), (req, res) => {
   if (!visitor) return res.status(404).json({ error: 'Visitor not found.' });
 
   const b = req.body;
+  if (b.aadhaar_no !== undefined && !/^\d{12}$/.test(String(b.aadhaar_no).trim())) {
+    return res.status(422).json({ error: 'Aadhaar number must contain exactly 12 digits.' });
+  }
   let photoUrl = visitor.photo_url;
   if (req.file) {
     // remove old photo file
@@ -195,13 +199,14 @@ router.put('/:id', upload.single('photo'), (req, res) => {
 
   db.prepare(
     `UPDATE visitors SET
-      name = ?, contact_no = ?, whatsapp_no = ?, companions = ?, whom_to_visit = ?, purpose = ?,
+      name = ?, contact_no = ?, whatsapp_no = ?, aadhaar_no = ?, companions = ?, whom_to_visit = ?, purpose = ?,
       photo_url = ?, latitude = ?, longitude = ?, address = ?, remarks = ?, updated_at = datetime('now')
      WHERE id = ?`
   ).run(
     b.name ?? visitor.name,
     b.contact_no ?? visitor.contact_no,
     b.whatsapp_no ?? visitor.whatsapp_no,
+    b.aadhaar_no !== undefined ? String(b.aadhaar_no).trim() : visitor.aadhaar_no,
     b.companions ?? visitor.companions,
     b.whom_to_visit ?? visitor.whom_to_visit,
     b.purpose ?? visitor.purpose,

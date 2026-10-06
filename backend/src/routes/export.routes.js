@@ -33,14 +33,14 @@ function getRows(query) {
 router.get('/csv', (req, res) => {
   const rows = getRows(req.query);
   const headers = [
-    'Serial No', 'Name', 'Contact', 'WhatsApp', 'Companions', 'Whom To Visit', 'Purpose',
+    'Serial No', 'Name', 'Contact', 'WhatsApp', 'Aadhaar No', 'Companions', 'Whom To Visit', 'Purpose',
     'Check-in', 'Check-out', 'Status', 'Address', 'Latitude', 'Longitude', 'Visit Date', 'Day',
     'Remarks', 'Checkout Remarks',
   ];
   const csvRows = [headers.join(',')];
   rows.forEach((v) => {
     const line = [
-      v.serial_no, v.name, v.contact_no, v.whatsapp_no || '', v.companions || '', v.whom_to_visit,
+      v.serial_no, v.name, v.contact_no, v.whatsapp_no || '', v.aadhaar_no || '', v.companions || '', v.whom_to_visit,
       v.purpose || '', v.checkin_time, v.checkout_time || '', v.status, (v.address || '').replace(/,/g, ';'),
       v.latitude ?? '', v.longitude ?? '', v.visit_date, v.visit_day,
       (v.remarks || '').replace(/,/g, ';'), (v.checkout_remarks || '').replace(/,/g, ';'),
@@ -59,6 +59,7 @@ router.get('/excel', (req, res) => {
     Name: v.name,
     Contact: v.contact_no,
     WhatsApp: v.whatsapp_no || '',
+    'Aadhaar No': v.aadhaar_no || '',
     Companions: v.companions || '',
     'Whom To Visit': v.whom_to_visit,
     Purpose: v.purpose || '',

@@ -141,6 +141,7 @@ export default function Reports() {
                 <tr className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-slate-500">
                   <th className="px-4 py-3">Visitor</th>
                   <th className="px-4 py-3">Contact</th>
+                  <th className="px-4 py-3">Aadhaar</th>
                   <th className="px-4 py-3">Whom to Visit</th>
                   <th className="px-4 py-3">Purpose</th>
                   <th className="px-4 py-3">Check-in</th>
@@ -166,6 +167,7 @@ export default function Reports() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{v.contact_no}</td>
+                    <td className="px-4 py-3 text-slate-400 whitespace-nowrap font-mono text-xs">{v.aadhaar_no ? `XXXX XXXX ${String(v.aadhaar_no).slice(-4)}` : '-'}</td>
                     <td className="px-4 py-3 text-slate-300">{v.whom_to_visit}</td>
                     <td className="px-4 py-3 text-slate-400">{v.purpose || '-'}</td>
                     <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{fmtDateTime(v.checkin_time)}</td>

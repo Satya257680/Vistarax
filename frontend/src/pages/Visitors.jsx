@@ -24,7 +24,7 @@ import { Spinner, Badge, EmptyState } from '../components/UI.jsx';
 import client, { API_URL } from '../api/client.js';
 
 const emptyForm = {
-  name: '', contact_no: '', whatsapp_no: '', companions: '', whom_to_visit: '', purpose: '',
+  name: '', contact_no: '', whatsapp_no: '', aadhaar_no: '', companions: '', whom_to_visit: '', purpose: '',
   remarks: '', latitude: null, longitude: null, address: '',
 };
 
@@ -92,8 +92,16 @@ export default function Visitors() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.name.trim() || !form.contact_no.trim() || !form.whom_to_visit.trim()) {
-      setError('Name, contact number and whom-to-visit are required.');
+    if (!form.name.trim() || !form.contact_no.trim() || !form.aadhaar_no.trim() || !form.whom_to_visit.trim()) {
+      setError('Name, contact number, Aadhaar number and whom-to-visit are required.');
+      return;
+    }
+    if (!/^\d{12}$/.test(form.aadhaar_no.trim())) {
+      setError('Aadhaar number must contain exactly 12 digits.');
+      return;
+    }
+    if ((form.latitude == null) !== (form.longitude == null)) {
+      setError('Please set a complete location pin or clear the location before submitting.');
       return;
     }
     setSaving(true);
@@ -196,12 +204,26 @@ export default function Visitors() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Contact Number *</label>
-                    <input className="input" value={form.contact_no} onChange={(e) => set('contact_no', e.target.value)} required />
+                    <input className="input" value={form.contact_no} onChange={(e) => set('contact_no', e.target.value)} inputMode="tel" required />
                   </div>
                   <div>
                     <label className="label">WhatsApp Number</label>
-                    <input className="input" value={form.whatsapp_no} onChange={(e) => set('whatsapp_no', e.target.value)} placeholder="Optional" />
+                    <input className="input" value={form.whatsapp_no} onChange={(e) => set('whatsapp_no', e.target.value)} placeholder="Optional" inputMode="tel" />
                   </div>
+                </div>
+                <div>
+                  <label className="label">Aadhaar Number *</label>
+                  <input
+                    className="input tracking-[0.08em]"
+                    value={form.aadhaar_no}
+                    onChange={(e) => set('aadhaar_no', e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={12}
+                    placeholder="Enter 12-digit Aadhaar number"
+                    required
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1.5">12 digits required for visitor registration.</p>
                 </div>
                 <div>
                   <label className="label">Others With Them</label>

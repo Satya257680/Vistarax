@@ -6,7 +6,7 @@ import MapPicker from './MapPicker.jsx';
 import client from '../api/client.js';
 
 const emptyForm = {
-  name: '', contact_no: '', whatsapp_no: '', companions: '', whom_to_visit: '', purpose: '',
+  name: '', contact_no: '', whatsapp_no: '', aadhaar_no: '', companions: '', whom_to_visit: '', purpose: '',
   remarks: '', latitude: null, longitude: null, address: '',
 };
 
@@ -15,7 +15,7 @@ export default function VisitorModal({ visitor, onClose, onSaved }) {
   const [form, setForm] = useState(
     isEdit
       ? {
-          name: visitor.name, contact_no: visitor.contact_no, whatsapp_no: visitor.whatsapp_no || '',
+          name: visitor.name, contact_no: visitor.contact_no, whatsapp_no: visitor.whatsapp_no || '', aadhaar_no: visitor.aadhaar_no || '',
           companions: visitor.companions || '', whom_to_visit: visitor.whom_to_visit, purpose: visitor.purpose || '',
           remarks: visitor.remarks || '', latitude: visitor.latitude, longitude: visitor.longitude, address: visitor.address || '',
         }
@@ -32,8 +32,12 @@ export default function VisitorModal({ visitor, onClose, onSaved }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.name.trim() || !form.contact_no.trim() || !form.whom_to_visit.trim()) {
-      setError('Name, contact number and whom-to-visit are required.');
+    if (!form.name.trim() || !form.contact_no.trim() || !form.aadhaar_no.trim() || !form.whom_to_visit.trim()) {
+      setError('Name, contact number, Aadhaar number and whom-to-visit are required.');
+      return;
+    }
+    if (!/^\d{12}$/.test(form.aadhaar_no.trim())) {
+      setError('Aadhaar number must contain exactly 12 digits.');
       return;
     }
     setSaving(true);
