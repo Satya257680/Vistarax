@@ -144,6 +144,7 @@ export default function Reports() {
                   <th className="px-4 py-3">Aadhaar</th>
                   <th className="px-4 py-3">Whom to Visit</th>
                   <th className="px-4 py-3">Purpose</th>
+                  <th className="px-4 py-3">Vehicle Number</th>
                   <th className="px-4 py-3">Check-in</th>
                   <th className="px-4 py-3">Check-out</th>
                   <th className="px-4 py-3">Location</th>
@@ -170,6 +171,7 @@ export default function Reports() {
                     <td className="px-4 py-3 text-slate-400 whitespace-nowrap font-mono text-xs">{v.aadhaar_no ? `XXXX XXXX ${String(v.aadhaar_no).slice(-4)}` : '-'}</td>
                     <td className="px-4 py-3 text-slate-300">{v.whom_to_visit}</td>
                     <td className="px-4 py-3 text-slate-400">{v.purpose || '-'}</td>
+                    <td className="px-4 py-3 text-slate-300 font-mono whitespace-nowrap">{v.vehicle_no || '—'}</td>
                     <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{fmtDateTime(v.checkin_time)}</td>
                     <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{fmtDateTime(v.checkout_time)}</td>
                     <td className="px-4 py-3">

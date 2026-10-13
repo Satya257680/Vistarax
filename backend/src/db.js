@@ -155,6 +155,12 @@ async function initDb() {
     await pool.query(stmt);
   }
   await run(`INSERT IGNORE INTO settings (id, company_name) VALUES (1, 'VistaraX')`);
+  // Backward-compatible schema upgrades for existing installations.
+  const visitorColumns = await query('SHOW COLUMNS FROM visitors');
+  const visitorColumnNames = new Set(visitorColumns.map((c) => c.Field));
+  if (!visitorColumnNames.has('vehicle_no')) await run('ALTER TABLE visitors ADD COLUMN vehicle_no VARCHAR(30) NULL AFTER purpose');
+  if (!visitorColumnNames.has('visitor_type')) await run("ALTER TABLE visitors ADD COLUMN visitor_type ENUM('regular','special') NOT NULL DEFAULT 'regular' AFTER vehicle_no");
+  await run(`CREATE TABLE IF NOT EXISTS photo_upload_sessions (token CHAR(48) PRIMARY KEY, photo_url VARCHAR(255) NULL, expires_at DATETIME NOT NULL, used_at DATETIME NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_photo_upload_expiry (expires_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
   await seedRoles();
   await seedSerialCounters();
   await seedAdmin();

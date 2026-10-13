@@ -9,6 +9,14 @@ export default function PhotoCapture({ value, onChange }) {
   const streamRef = useRef(null);
 
   useEffect(() => () => stopCamera(), []);
+  useEffect(() => {
+    if (value instanceof File) {
+      const url = URL.createObjectURL(value); setPreview(url); setMode('preview');
+      return () => URL.revokeObjectURL(url);
+    }
+    if (!value) { setPreview(null); setMode('idle'); }
+    return undefined;
+  }, [value]);
 
   async function startCamera() {
     try {

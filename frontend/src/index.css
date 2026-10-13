@@ -105,3 +105,10 @@ html[data-appearance="light"] .text-white { color:#172033 !important; }
 html[data-appearance="light"] .text-slate-100, html[data-appearance="light"] .text-slate-200, html[data-appearance="light"] .text-slate-300 { color:#263247 !important; }
 html[data-appearance="light"] .text-slate-400, html[data-appearance="light"] .text-slate-500 { color:#64748b !important; }
 html[data-appearance="light"] .input { background:rgba(255,255,255,.9); color:#172033; border-color:#cbd5e1; }
+
+/* User-selectable premium accent and translucent glass-bar palettes */
+:root { --theme-accent: #6366f1; --theme-glass: rgba(25,31,58,.82); }
+.glass-strong { background: linear-gradient(180deg, var(--theme-glass), rgba(10,14,26,.94)); }
+.shadow-glow { --tw-shadow-color: var(--theme-accent); }
+
+html:not([data-appearance="light"]) .glass { background: linear-gradient(180deg, color-mix(in srgb, var(--theme-glass) 65%, rgba(255,255,255,.045)), color-mix(in srgb, var(--theme-glass) 38%, rgba(255,255,255,.015))); }

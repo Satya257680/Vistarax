@@ -22,10 +22,10 @@ async function getRows({ from, to, status }) {
   return query(`SELECT * FROM visitors ${where} ORDER BY id DESC`, params);
 }
 
-const HEADERS = ['Serial No', 'Name', 'Contact', 'WhatsApp', 'Aadhaar No', 'Companions', 'Whom To Visit', 'Purpose',
+const HEADERS = ['Serial No', 'Name', 'Contact', 'WhatsApp', 'Aadhaar No', 'Companions', 'Whom To Visit', 'Purpose', 'Vehicle Number',
   'Check-in', 'Check-out', 'Status', 'Address', 'Latitude', 'Longitude', 'Visit Date', 'Day', 'Remarks', 'Checkout Remarks'];
 const toLine = (v) => [v.serial_no, v.name, v.contact_no, v.whatsapp_no || '', v.aadhaar_no || '', v.companions || '', v.whom_to_visit,
-  v.purpose || '', toIso(v.checkin_time), toIso(v.checkout_time), v.status, v.address || '', v.latitude ?? '', v.longitude ?? '',
+  v.purpose || '', v.vehicle_no || '', toIso(v.checkin_time), toIso(v.checkout_time), v.status, v.address || '', v.latitude ?? '', v.longitude ?? '',
   v.visit_date, v.visit_day, v.remarks || '', v.checkout_remarks || ''];
 
 router.get('/csv', asyncHandler(async (req, res) => {

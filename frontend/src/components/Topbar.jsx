@@ -103,6 +103,7 @@ export default function Topbar({ onOpenMenu }) {
 
   return (
     <header className="sticky top-0 z-30 glass border-b border-white/10 px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+      <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-none" aria-label="Jawandsons"><img src="/brand/jawandsons-logo.png" alt="Jawandsons" className="h-10 md:h-12 w-auto max-w-[180px] object-contain rounded-md" /></div>
       <button
         onClick={onOpenMenu}
         className="lg:hidden h-10 w-10 shrink-0 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition"

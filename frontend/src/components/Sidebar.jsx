@@ -2,16 +2,40 @@
 // Renders as a permanent rail on large screens and a slide-in drawer on
 // phones/tablets (controlled by Layout via `mobileOpen` / `onClose`), so
 // navigation is actually reachable on mobile instead of just disappearing.
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, UserPlus, DoorOpen, BarChart3, Bell, UserCog, Settings, KeyRound, X, UsersRound,
+  Palette, LayoutDashboard, UserPlus, DoorOpen, BarChart3, Bell, UserCog, Settings, KeyRound, X, UsersRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const item = 'flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition group';
 const active = 'bg-gradient-to-r from-accent-blue/20 to-accent-violet/10 text-white border border-white/10 shadow-glow';
 const inactive = 'text-slate-400 hover:text-white hover:bg-white/5';
+
+
+function AppearancePanel() {
+  const palettes = [
+    { name: 'Aurora', accent: '#6366f1', glass: 'rgba(25, 31, 58, .82)' },
+    { name: 'Ocean', accent: '#0891b2', glass: 'rgba(8, 37, 53, .82)' },
+    { name: 'Emerald', accent: '#059669', glass: 'rgba(8, 43, 36, .82)' },
+    { name: 'Rose', accent: '#e11d48', glass: 'rgba(55, 20, 38, .82)' },
+    { name: 'Amber', accent: '#d97706', glass: 'rgba(48, 33, 18, .84)' },
+    { name: 'Violet', accent: '#9333ea', glass: 'rgba(37, 20, 61, .84)' },
+  ];
+  const [selected, setSelected] = useState(() => localStorage.getItem('vistarax_palette') || 'Aurora');
+  useEffect(() => {
+    const p = palettes.find(x => x.name === selected) || palettes[0];
+    document.documentElement.style.setProperty('--theme-accent', p.accent);
+    document.documentElement.style.setProperty('--theme-glass', p.glass);
+    localStorage.setItem('vistarax_palette', p.name);
+  }, [selected]);
+  return <section className="glass rounded-xl p-3 mt-4">
+    <div className="flex items-center gap-2 text-xs font-semibold text-slate-200 mb-3"><Palette size={15}/> Appearance</div>
+    <div className="grid grid-cols-3 gap-2">{palettes.map(p => <button key={p.name} type="button" onClick={() => setSelected(p.name)} title={`${p.name} glass theme`} aria-label={`${p.name} appearance`} className={`rounded-lg border p-1.5 text-[10px] transition ${selected===p.name?'border-white/70 bg-white/10':'border-white/10 hover:bg-white/5'}`}><span className="block h-5 rounded-md mb-1" style={{background:`linear-gradient(135deg, ${p.accent}, ${p.glass})`}}/><span>{p.name}</span></button>)}</div>
+    <p className="text-[10px] text-slate-500 mt-2">Choose an accent and glass-bar colour.</p>
+  </section>;
+}
 
 function SidebarContent({ onNavigate }) {
   const { isAdmin } = useAuth();
@@ -62,6 +86,7 @@ function SidebarContent({ onNavigate }) {
         )}
       </nav>
 
+      <AppearancePanel />
       <div className="glass rounded-xl p-3.5 mt-4">
         <p className="text-xs font-semibold text-white">Secure Session</p>
         <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">

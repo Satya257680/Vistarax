@@ -20,13 +20,7 @@ function VisitorPass({ visitor, company }) {
   return (
     <article className="vx-pass">
       <header className="vx-pass-header">
-        <div className="vx-brand">
-          <span className="vx-brand-mark" aria-hidden="true">V</span>
-          <span className="vx-brand-copy">
-            <strong>{company || 'VistaraX'}</strong>
-            <small>VISITOR MANAGEMENT</small>
-          </span>
-        </div>
+        <div className="vx-brand vx-brand-centered"><img src="/brand/jawandsons-logo.png" alt="Jawandsons" className="vx-jawandsons-logo" /></div>
         <div className="vx-pass-label">VISITOR<br />PASS</div>
       </header>
 
@@ -140,6 +134,8 @@ export default function Print() {
         .vx-pass:before { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 4% 100%,rgba(0,194,255,.35),transparent 40%),radial-gradient(ellipse at 98% 10%,rgba(153,91,255,.30),transparent 40%); }
         .vx-pass-header { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:3.2mm 3.5mm 2.5mm; border-bottom:1px solid rgba(154,187,255,.35); }
         .vx-brand { display:flex; align-items:center; min-width:0; gap:2mm; }
+        .vx-brand-centered { position:absolute; left:50%; transform:translateX(-50%); justify-content:center; width:42mm; }
+        .vx-jawandsons-logo { display:block; width:100%; max-height:11mm; object-fit:contain; background:#fff; border-radius:1mm; padding:.5mm 1mm; }
         .vx-brand-mark { width:8mm; height:8mm; flex:0 0 8mm; display:grid; place-items:center; border-radius:2mm; font-weight:900; font-size:17px; color:#fff; background:linear-gradient(145deg,#15baff,#4b6bff 55%,#a65cff); box-shadow:0 0 14px #4c7dff66; }
         .vx-brand-copy { min-width:0; display:flex; flex-direction:column; gap:.5mm; }
         .vx-brand-copy strong { font-size:12px; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:-.03em; }
@@ -209,13 +205,13 @@ export default function Print() {
               <h1>{company}</h1>
               <div className="vx-register-meta">Visitor Register — Printed {new Date().toLocaleString()}</div>
               <table>
-                <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Contact</th><th>Whom to Visit</th><th>Purpose</th><th>Check-in</th><th>Check-out</th><th>Status</th><th>Remarks</th></tr></thead>
+                <thead><tr><th>#</th><th>Photo</th><th>Name</th><th>Contact</th><th>Whom to Visit</th><th>Purpose</th><th>Vehicle Number</th><th>Check-in</th><th>Check-out</th><th>Status</th><th>Remarks</th></tr></thead>
                 <tbody>{rows.map((visitor, index) => (
                   <tr key={visitor.id}>
                     <td>{index + 1}</td>
                     <td>{visitor.photo_url ? <img src={assetUrl(visitor.photo_url)} alt={visitor.name} /> : '—'}</td>
                     <td>{visitor.name}</td><td>{visitor.contact_no || '—'}</td><td>{visitor.whom_to_visit || '—'}</td>
-                    <td>{visitor.purpose || '—'}</td><td>{displayDate(visitor.checkin_time)}</td>
+                    <td>{visitor.purpose || '—'}</td><td>{visitor.vehicle_no || '—'}</td><td>{displayDate(visitor.checkin_time)}</td>
                     <td>{visitor.checkout_time ? displayDate(visitor.checkout_time) : '—'}</td>
                     <td>{visitor.status === 'inside' ? 'Inside' : 'Checked Out'}</td><td>{visitor.remarks || '—'}</td>
                   </tr>

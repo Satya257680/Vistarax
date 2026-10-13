@@ -16,6 +16,7 @@ import RolesPermissions from './pages/RolesPermissions.jsx';
 import Settings from './pages/Settings.jsx';
 import Print from './pages/Print.jsx';
 import Recipients from './pages/Recipients.jsx';
+import PhotoUpload from './pages/PhotoUpload.jsx';
 
 export default function App() {
   // Every fresh load (a hard refresh, or the very first visit) shows the
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/photo-upload/:token" element={<PhotoUpload />} />
 
         <Route path="/print" element={<ProtectedRoute><Print /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

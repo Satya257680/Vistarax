@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  UserPlus, User, MapPinned, Camera as CameraIcon, CheckCircle2, RefreshCcw,
+  UserPlus, User, MapPinned, Camera as CameraIcon, CheckCircle2, RefreshCcw, QrCode,
   ArrowRight, Search, X, BarChart3, DoorOpen, Sparkles,
 } from 'lucide-react';
 import Layout from '../components/Layout.jsx';
@@ -84,6 +84,28 @@ export default function Visitors() {
   // --- The entry form itself ---------------------------------------------
   const [form, setForm] = useState(emptyForm);
   const [photo, setPhoto] = useState(null);
+  const [qrSession, setQrSession] = useState(null);
+  const [qrError, setQrError] = useState('');
+  const [qrLoading, setQrLoading] = useState(false);
+
+  async function createPhotoQr() {
+    setQrLoading(true); setQrError(''); setQrSession(null);
+    try { const { data } = await client.post('/photo-upload/session'); setQrSession(data); }
+    catch (e) { setQrError(e.response?.data?.error || 'Could not create photo QR.'); }
+    finally { setQrLoading(false); }
+  }
+  useEffect(() => {
+    if (!qrSession?.token || photo) return undefined;
+    let alive = true; let busy = false;
+    const timer = setInterval(async () => {
+      if (busy) return; busy = true;
+      try { const { data } = await client.get(`/photo-upload/session/${qrSession.token}`);
+        if (alive && data.photo_url) { const response = await fetch(`${API_URL}${data.photo_url}`); const blob = await response.blob(); const f = new File([blob], 'visitor-mobile-photo.jpg', { type: blob.type || 'image/jpeg' }); setPhoto(f); setQrSession(null); }
+      } catch (e) { if (alive && e.response?.status === 404) { setQrError('QR expired. Generate a new one.'); setQrSession(null); } }
+      finally { busy = false; }
+    }, 2500);
+    return () => { alive = false; clearInterval(timer); };
+  }, [qrSession, photo]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null); // { name, serial_no }
@@ -94,6 +116,7 @@ export default function Visitors() {
   function clearForm() {
     setForm(emptyForm);
     setPhoto(null);
+    setQrSession(null); setQrError('');
     setError('');
     setFormKey((k) => k + 1);
   }
@@ -270,7 +293,14 @@ export default function Visitors() {
 
               <div className="space-y-5">
                 <SectionLabel icon={CameraIcon}>Visitor Photo</SectionLabel>
-                <PhotoCapture value={null} onChange={setPhoto} />
+                <div className="glass rounded-2xl p-4 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2"><QrCode size={17} className="text-accent-cyan"/><p className="text-sm font-semibold text-slate-100">Capture from visitor's phone</p></div>
+                  <p className="text-xs text-slate-400 mb-3">Generate a one-time QR. The visitor scans it, takes a photo on their phone, and it appears here automatically.</p>
+                  {qrSession?.token ? <div className="flex items-center gap-4"><img className="w-28 h-28 rounded-xl bg-white p-1" alt="One-time visitor photo upload QR code" src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(`${(import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, '')}/photo-upload/${qrSession.token}`)}`} /><div className="min-w-0"><p className="text-sm text-emerald-300 font-medium">Waiting for mobile photo…</p><p className="text-xs text-slate-500 mt-1">QR expires in 10 minutes. Keep this form open.</p><button type="button" className="btn-secondary mt-2 text-xs" onClick={createPhotoQr}>Refresh QR</button></div></div> : <button type="button" className="btn-secondary flex items-center gap-2 text-sm" disabled={qrLoading} onClick={createPhotoQr}><QrCode size={15}/>{qrLoading ? 'Generating…' : 'Generate mobile photo QR'}</button>}
+                  {qrError && <p className="text-xs text-amber-300 mt-2">{qrError}</p>}
+                  {photo && <p className="text-xs text-emerald-300 mt-2">Mobile photo received and attached to this visitor.</p>}
+                </div>
+                <PhotoCapture value={photo} onChange={setPhoto} />
 
                 {isAdmin && <div className="rounded-xl border border-white/10 p-3 flex items-center justify-between gap-3"><div><p className="text-sm text-slate-200">Location capture</p><p className="text-xs text-slate-500">Admin controls whether the map appears on entry forms.</p></div><button type="button" className="btn-secondary text-xs" onClick={async () => { const next=!locationVisible; try { const {data}=await client.put('/settings/location-capture',{enabled:next}); setLocationVisible(Boolean(data.enabled)); } catch(err) { setError(err.response?.data?.error || 'Could not update global location setting.'); } }}>{locationVisible ? 'ON · Hide location' : 'OFF · Show location'}</button></div>}
                 {isAdmin && locationVisible && <><SectionLabel icon={MapPinned}>Location (Admin only)</SectionLabel>

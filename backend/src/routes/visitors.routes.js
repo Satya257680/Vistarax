@@ -31,8 +31,8 @@ router.get('/', requirePermission('visitors.view'), asyncHandler(async (req, res
 
   if (q) {
     const like = `%${likeEscape(String(q).slice(0, 100))}%`;
-    clauses.push('(name LIKE ? OR contact_no LIKE ? OR whatsapp_no LIKE ? OR aadhaar_no LIKE ? OR serial_no LIKE ? OR whom_to_visit LIKE ? OR purpose LIKE ? OR address LIKE ?)');
-    for (let i = 0; i < 8; i += 1) params.push(like);
+    clauses.push('(name LIKE ? OR contact_no LIKE ? OR whatsapp_no LIKE ? OR aadhaar_no LIKE ? OR serial_no LIKE ? OR whom_to_visit LIKE ? OR purpose LIKE ? OR address LIKE ? OR vehicle_no LIKE ?)');
+    for (let i = 0; i < 9; i += 1) params.push(like);
   }
   if (status && status !== 'all') { clauses.push('status = ?'); params.push(String(status)); }
   if (purpose && purpose !== 'all') { clauses.push('purpose = ?'); params.push(String(purpose)); }
