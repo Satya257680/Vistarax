@@ -14,12 +14,11 @@ third-party visitor-management SaaS, no external database service required.
 
 ```
 vistarax/
-├── backend/     Node.js + Express API, SQLite database, JWT auth, Socket.IO
+├── backend/     Node.js + Express API, MySQL database, JWT auth, Socket.IO
 └── frontend/    React + Vite + Tailwind CSS dashboard (Premium Glass Command Center UI)
 ```
 
-**Backend stack:** Express, better-sqlite3 (file-based DB, no server to install),
-JWT + bcrypt authentication, helmet, express-rate-limit, express-validator,
+**Backend stack:** Express, MySQL, JWT + bcrypt authentication, helmet, express-rate-limit, express-validator,
 multer (photo uploads), Socket.IO (real-time notifications), pdfkit + xlsx
 (exports).
 
@@ -67,11 +66,9 @@ Socket.IO client, Lucide icons.
 ## 3. Prerequisites
 
 - Node.js **18+** and npm
-- That's it — the database is a local SQLite file, there is no separate
-  database server to install.
+- MySQL Server **8.x** installed and running
 
 ---
-
 
 ## 6. Roles
 
