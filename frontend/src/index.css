@@ -94,3 +94,14 @@ select.input optgroup {
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-fade-in { animation: fade-in 0.25s ease-out; }
+
+/* User-selectable appearance and typography */
+body { font-size: var(--user-font-size, 14px); }
+html[data-appearance="light"] body { background:#eef2ff; color:#172033; }
+html[data-appearance="light"] .glass { background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,255,255,.68)); border-color:rgba(71,85,105,.18); }
+html[data-appearance="light"] .glass-strong { background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(241,245,249,.98)); border-color:rgba(71,85,105,.2); }
+html[data-appearance="light"] .card { background:rgba(255,255,255,.84); border-color:rgba(71,85,105,.18); box-shadow:0 12px 32px rgba(15,23,42,.08); }
+html[data-appearance="light"] .text-white { color:#172033 !important; }
+html[data-appearance="light"] .text-slate-100, html[data-appearance="light"] .text-slate-200, html[data-appearance="light"] .text-slate-300 { color:#263247 !important; }
+html[data-appearance="light"] .text-slate-400, html[data-appearance="light"] .text-slate-500 { color:#64748b !important; }
+html[data-appearance="light"] .input { background:rgba(255,255,255,.9); color:#172033; border-color:#cbd5e1; }

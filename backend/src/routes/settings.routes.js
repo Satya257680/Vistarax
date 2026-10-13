@@ -10,6 +10,9 @@ router.use(requireAuth);
 
 const toBool = (v, fallback) => (v === undefined ? fallback : (v === true || v === 'true' || v === '1' || v === 1 ? 1 : 0));
 
+router.get('/location-capture', asyncHandler(async (req,res) => { const row=await one('SELECT location_capture_enabled FROM settings WHERE id=1'); res.json({ enabled: Boolean(row?.location_capture_enabled) }); }));
+router.put('/location-capture', requireRole('admin'), asyncHandler(async(req,res)=>{ const enabled=req.body?.enabled === true || req.body?.enabled === 'true' || req.body?.enabled === 1 || req.body?.enabled === '1'; await run('UPDATE settings SET location_capture_enabled=? WHERE id=1',[enabled?1:0]); res.json({enabled}); }));
+
 router.get('/', asyncHandler(async (req, res) => {
   res.json({ settings: await one('SELECT * FROM settings WHERE id = 1') });
 }));

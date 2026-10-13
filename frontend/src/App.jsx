@@ -15,6 +15,7 @@ import Users from './pages/Users.jsx';
 import RolesPermissions from './pages/RolesPermissions.jsx';
 import Settings from './pages/Settings.jsx';
 import Print from './pages/Print.jsx';
+import Recipients from './pages/Recipients.jsx';
 
 export default function App() {
   // Every fresh load (a hard refresh, or the very first visit) shows the
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
         <Route path="/roles" element={<ProtectedRoute adminOnly><RolesPermissions /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/recipients" element={<ProtectedRoute><Recipients /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -11,7 +11,7 @@
 // results list and the visitor profile drawer are kept for that path -
 // but neither is part of the default view.
 import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   UserPlus, User, MapPinned, Camera as CameraIcon, CheckCircle2, RefreshCcw,
   ArrowRight, Search, X, BarChart3, DoorOpen, Sparkles,
@@ -25,7 +25,7 @@ import client, { API_URL } from '../api/client.js';
 
 const emptyForm = {
   name: '', contact_no: '', whatsapp_no: '', aadhaar_no: '', companions: '', whom_to_visit: '', purpose: '',
-  remarks: '', latitude: null, longitude: null, address: '',
+  remarks: '', latitude: null, longitude: null, address: '', vehicle_no: '', visitor_type: 'regular',
 };
 
 function SectionLabel({ icon: Icon, children }) {
@@ -38,6 +38,15 @@ function SectionLabel({ icon: Icon, children }) {
 
 export default function Visitors() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const storedUser = JSON.parse(localStorage.getItem('vistarax_user') || sessionStorage.getItem('vistarax_user') || 'null');
+  const isAdmin = storedUser?.role === 'admin';
+  const [locationVisible, setLocationVisible] = useState(false);
+  useEffect(() => { client.get('/settings/location-capture').then(({data}) => setLocationVisible(Boolean(data.enabled))).catch(() => setLocationVisible(false)); }, []);
+  const [oldVisitor, setOldVisitor] = useState(null);
+  const [recipients, setRecipients] = useState([]);
+  useEffect(() => { client.get('/recipients').then(({data}) => setRecipients(data.data || [])).catch(() => setRecipients([])); }, []);
+  const [lookingUp, setLookingUp] = useState(false);
 
   // --- Deep-link search / focus, driven by the topbar (not this page's
   // own UI) --------------------------------------------------------------
@@ -92,11 +101,11 @@ export default function Visitors() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!form.name.trim() || !form.contact_no.trim() || !form.aadhaar_no.trim() || !form.whom_to_visit.trim()) {
-      setError('Name, contact number, Aadhaar number and whom-to-visit are required.');
+    if (!form.name.trim() || !form.whom_to_visit.trim() || (form.visitor_type !== 'special' && (!form.contact_no.trim() || !form.aadhaar_no.trim()))) {
+      setError(form.visitor_type === 'special' ? 'Name and whom-to-visit are required.' : 'Name, contact number, Aadhaar number and whom-to-visit are required.');
       return;
     }
-    if (!/^\d{12}$/.test(form.aadhaar_no.trim())) {
+    if (form.visitor_type !== 'special' && !/^\d{12}$/.test(form.aadhaar_no.trim())) {
       setError('Aadhaar number must contain exactly 12 digits.');
       return;
     }
@@ -112,7 +121,7 @@ export default function Visitors() {
       });
       if (photo) fd.append('photo', photo);
       const { data } = await client.post('/visitors', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      setSuccess({ name: data.visitor?.name || form.name, serial_no: data.visitor?.serial_no });
+      setSuccess({ name: data.visitor?.name || form.name, serial_no: data.visitor?.serial_no, id: data.visitor?.id });
       clearForm();
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
@@ -187,6 +196,7 @@ export default function Visitors() {
                 <p className="text-sm font-semibold text-white">{success.name} checked in{success.serial_no ? ` — ${success.serial_no}` : ''}</p>
                 <p className="text-xs text-slate-400 mt-0.5">Already visible in Reports and Currently Inside. Ready for the next visitor.</p>
               </div>
+              <button onClick={() => success.id && navigate(`/print?ids=${success.id}&pass=1`)} className="btn-primary text-xs">Print Entry Pass</button>
               <button onClick={() => setSuccess(null)} className="text-slate-500 hover:text-slate-300 p-1"><X size={16} /></button>
             </div>
           )}
@@ -197,14 +207,16 @@ export default function Visitors() {
             <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-8">
               <div className="space-y-5">
                 <SectionLabel icon={User}>Visitor Information</SectionLabel>
+                {isAdmin && <div className="rounded-xl border border-accent-violet/30 bg-accent-violet/5 p-3"><label className="label">Visitor category (Admin)</label><select className="input" value={form.visitor_type} onChange={e => { set('visitor_type', e.target.value); setOldVisitor(null); }}><option value="regular">Regular visitor — ID verification</option><option value="special">Special visitor — buyer / business partner / VIP (ID not required)</option></select><p className="text-xs text-slate-500 mt-1">Special visitor makes photo, contact and Aadhaar optional. Entry staff cannot change this setting.</p></div>}
+                {form.visitor_type === 'special' && isAdmin && <p className="text-xs text-amber-300">Special visitor mode is enabled by administrator.</p>}
                 <div>
                   <label className="label">Full Name *</label>
                   <input className="input" value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus required />
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="label">Contact Number *</label>
-                    <input className="input" value={form.contact_no} onChange={(e) => set('contact_no', e.target.value)} inputMode="tel" required />
+                    <label className="label">Contact Number {form.visitor_type === 'special' ? '(Optional)' : '*'}</label>
+                    <input className="input" value={form.contact_no} onChange={(e) => set('contact_no', e.target.value)} inputMode="tel" required={form.visitor_type !== 'special'} />
                   </div>
                   <div>
                     <label className="label">WhatsApp Number</label>
@@ -212,7 +224,7 @@ export default function Visitors() {
                   </div>
                 </div>
                 <div>
-                  <label className="label">Aadhaar Number *</label>
+                  <label className="label">Aadhaar Number {form.visitor_type === 'special' ? '(Optional)' : '*'}</label>
                   <input
                     className="input tracking-[0.08em]"
                     value={form.aadhaar_no}
@@ -221,9 +233,14 @@ export default function Visitors() {
                     autoComplete="off"
                     maxLength={12}
                     placeholder="Enter 12-digit Aadhaar number"
-                    required
+                    required={form.visitor_type !== 'special'}
+                    onBlur={async () => { if (form.visitor_type === 'special' || !/^\d{12}$/.test(form.aadhaar_no)) return; setLookingUp(true); try { const {data} = await client.get('/visitors/lookup/aadhaar', {params:{aadhaar:form.aadhaar_no}}); if(data.visitor){ const v=data.visitor; setOldVisitor(v); setForm(f=>({...f,name:v.name||f.name,contact_no:v.contact_no||f.contact_no,whatsapp_no:v.whatsapp_no||f.whatsapp_no,companions:v.companions||f.companions,vehicle_no:v.vehicle_no||f.vehicle_no,remarks:v.remarks||f.remarks})); } else setOldVisitor(null); } catch { setOldVisitor(null); } finally { setLookingUp(false); } }}
                   />
-                  <p className="text-[11px] text-slate-500 mt-1.5">12 digits required for visitor registration.</p>
+                  <p className="text-[11px] text-slate-500 mt-1.5">{lookingUp ? 'Checking previous visitor record…' : oldVisitor ? `Previous record found: ${oldVisitor.name}. Recent details filled; verify before saving.` : form.visitor_type === 'special' ? 'Optional for special visitors.' : '12 digits required. Existing visitor details will be suggested.'}</p>
+                </div>
+                <div>
+                  <label className="label">Vehicle Number (Optional)</label>
+                  <input className="input uppercase" value={form.vehicle_no} onChange={e => set('vehicle_no', e.target.value.toUpperCase().slice(0,20))} placeholder="e.g. OD01AB1234 — car or motorcycle" />
                 </div>
                 <div>
                   <label className="label">Others With Them</label>
@@ -235,7 +252,8 @@ export default function Visitors() {
                 <SectionLabel icon={DoorOpen}>Visit Information</SectionLabel>
                 <div>
                   <label className="label">Whom to Visit *</label>
-                  <input className="input" value={form.whom_to_visit} onChange={(e) => set('whom_to_visit', e.target.value)} required />
+                  <input className="input" list="recipient-list" value={form.whom_to_visit} onChange={(e) => set('whom_to_visit', e.target.value)} required placeholder="Search company host or enter a name" />
+                  <datalist id="recipient-list">{recipients.map(person => <option key={person.id} value={person.name}>{[person.designation, person.department].filter(Boolean).join(' · ')}</option>)}</datalist>
                 </div>
                 <div>
                   <label className="label">Purpose of Visit</label>
@@ -254,7 +272,8 @@ export default function Visitors() {
                 <SectionLabel icon={CameraIcon}>Visitor Photo</SectionLabel>
                 <PhotoCapture value={null} onChange={setPhoto} />
 
-                <SectionLabel icon={MapPinned}>Location</SectionLabel>
+                {isAdmin && <div className="rounded-xl border border-white/10 p-3 flex items-center justify-between gap-3"><div><p className="text-sm text-slate-200">Location capture</p><p className="text-xs text-slate-500">Admin controls whether the map appears on entry forms.</p></div><button type="button" className="btn-secondary text-xs" onClick={async () => { const next=!locationVisible; try { const {data}=await client.put('/settings/location-capture',{enabled:next}); setLocationVisible(Boolean(data.enabled)); } catch(err) { setError(err.response?.data?.error || 'Could not update global location setting.'); } }}>{locationVisible ? 'ON · Hide location' : 'OFF · Show location'}</button></div>}
+                {isAdmin && locationVisible && <><SectionLabel icon={MapPinned}>Location (Admin only)</SectionLabel>
                 <MapPicker
                   lat={form.latitude}
                   lng={form.longitude}
@@ -265,6 +284,8 @@ export default function Visitors() {
                     ...(v.address !== undefined ? { address: v.address } : {}),
                   }))}
                 />
+                </>}
+                {!isAdmin && <div className="glass rounded-xl p-4 text-xs text-slate-500">Location capture is managed by an administrator.</div>}
               </div>
             </div>
 

@@ -72,6 +72,14 @@ router.get('/stats/summary', requirePermission('dashboard.view'), asyncHandler(a
   res.json({ todayCount, inside, checkedOutToday, monthTotal, last7, byPurpose });
 }));
 
+// --- LOOKUP EXISTING VISITOR BY AADHAAR (return latest record only) --------
+router.get('/lookup/aadhaar', requirePermission('visitors.view'), asyncHandler(async (req, res) => {
+  const aadhaar = String(req.query.aadhaar || '').trim();
+  if (!/^\d{12}$/.test(aadhaar)) return res.status(422).json({ error: 'Enter a valid 12-digit Aadhaar number.' });
+  const visitor = await one('SELECT id, name, contact_no, whatsapp_no, companions, vehicle_no, remarks FROM visitors WHERE aadhaar_no = ? ORDER BY id DESC LIMIT 1', [aadhaar]);
+  res.json({ visitor: visitor || null });
+}));
+
 // --- SINGLE VISITOR -------------------------------------------------------
 router.get('/:id', requirePermission('visitors.view'), asyncHandler(async (req, res) => {
   const visitor = await one('SELECT * FROM visitors WHERE id = ?', [req.params.id]);
@@ -88,13 +96,17 @@ router.get('/:id', requirePermission('visitors.view'), asyncHandler(async (req, 
 router.post('/', requirePermission('visitors.manage'), upload.single('photo'), verifyUploadedImage,
   visitorValidators, handleValidation, asyncHandler(async (req, res) => {
     const b = req.body;
+    const special = String(b.visitor_type || 'regular') === 'special';
+    if (special && req.user.role !== 'admin') { if (req.file) removeUpload(`/uploads/visitors/${req.file.filename}`); return res.status(403).json({ error: 'Only an administrator can register special visitors.' }); }
+    if (!String(b.name || '').trim() || !String(b.whom_to_visit || '').trim()) return res.status(422).json({ error: 'Name and whom-to-visit are required.' });
+    if (!special && (!/^[0-9+\-\s()]{6,20}$/.test(String(b.contact_no || '').trim()) || !/^\d{12}$/.test(String(b.aadhaar_no || '').trim()))) return res.status(422).json({ error: 'Regular visitors require a valid contact number and 12-digit Aadhaar number.' });
     const visitDate = b.visit_date || localDate(0);
     const cleanup = () => req.file && removeUpload(`/uploads/visitors/${req.file.filename}`);
 
     if (!isValidDateStr(visitDate)) { cleanup(); return res.status(422).json({ error: 'visit_date is not a valid date.' }); }
 
     const settings = await one('SELECT photo_required FROM settings WHERE id = 1');
-    if (settings && settings.photo_required && !req.file) {
+    if (!special && settings && settings.photo_required && !req.file) {
       return res.status(422).json({ error: 'A visitor photo is required.' });
     }
 
@@ -105,11 +117,11 @@ router.post('/', requirePermission('visitors.manage'), upload.single('photo'), v
         const serial = await nextSerial(tx, Number(visitDate.slice(0, 4)) || new Date().getFullYear());
         const info = await tx.run(
           `INSERT INTO visitors
-            (serial_no, name, contact_no, whatsapp_no, aadhaar_no, companions, whom_to_visit, purpose,
+            (serial_no, name, contact_no, whatsapp_no, aadhaar_no, companions, whom_to_visit, purpose, vehicle_no, visitor_type,
              checkin_time, photo_url, latitude, longitude, address, visit_date, visit_day, remarks, status, created_by)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'inside', ?)`,
-          [serial, b.name, b.contact_no, b.whatsapp_no || null, b.aadhaar_no, b.companions || null, b.whom_to_visit,
-            b.purpose || null, new Date(), photoUrl, numOrNull(b.latitude), numOrNull(b.longitude), b.address || null,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'inside', ?)`,
+          [serial, b.name, b.contact_no || null, b.whatsapp_no || null, b.aadhaar_no || null, b.companions || null, b.whom_to_visit,
+            b.purpose || null, b.vehicle_no || null, special ? 'special' : 'regular', new Date(), photoUrl, numOrNull(b.latitude), numOrNull(b.longitude), b.address || null,
             visitDate, dayName(visitDate), b.remarks || null, req.user.id]
         );
         await tx.run(
@@ -143,12 +155,12 @@ router.put('/:id', requirePermission('visitors.manage'), upload.single('photo'),
 
     await run(
       `UPDATE visitors SET name = ?, contact_no = ?, whatsapp_no = ?, aadhaar_no = ?, companions = ?, whom_to_visit = ?,
-         purpose = ?, photo_url = ?, latitude = ?, longitude = ?, address = ?, remarks = ? WHERE id = ?`,
+         purpose = ?, vehicle_no = ?, photo_url = ?, latitude = ?, longitude = ?, address = ?, remarks = ? WHERE id = ?`,
       [
         b.name ?? visitor.name, b.contact_no ?? visitor.contact_no, b.whatsapp_no ?? visitor.whatsapp_no,
         b.aadhaar_no !== undefined ? String(b.aadhaar_no).trim() : visitor.aadhaar_no,
         b.companions ?? visitor.companions, b.whom_to_visit ?? visitor.whom_to_visit, b.purpose ?? visitor.purpose,
-        photoUrl,
+        b.vehicle_no ?? visitor.vehicle_no, photoUrl,
         b.latitude !== undefined ? numOrNull(b.latitude) : visitor.latitude,
         b.longitude !== undefined ? numOrNull(b.longitude) : visitor.longitude,
         b.address ?? visitor.address, b.remarks ?? visitor.remarks, visitor.id,

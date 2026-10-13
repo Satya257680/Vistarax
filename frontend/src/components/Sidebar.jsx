@@ -5,7 +5,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, UserPlus, DoorOpen, BarChart3, Bell, UserCog, Settings, KeyRound, X,
+  LayoutDashboard, UserPlus, DoorOpen, BarChart3, Bell, UserCog, Settings, KeyRound, X, UsersRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -27,6 +27,7 @@ function SidebarContent({ onNavigate }) {
     { to: '/users', label: 'Users', icon: UserCog },
     { to: '/roles', label: 'Roles & Permissions', icon: KeyRound },
     { to: '/settings', label: 'Settings', icon: Settings },
+    { to: '/recipients', label: 'Whom to Visit', icon: UsersRound },
   ];
 
   return (

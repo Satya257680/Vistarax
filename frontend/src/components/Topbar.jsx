@@ -1,7 +1,7 @@
 // VistaraX - Topbar: live quick-search, notifications bell, profile menu, logout
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Bell, LogOut, User, Wifi, WifiOff, Menu, X, Loader2 } from 'lucide-react';
+import { Search, Bell, LogOut, User, Wifi, WifiOff, Menu, X, Loader2, Moon, Sun, Type } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useSocket } from '../context/SocketContext.jsx';
 import client, { API_URL } from '../api/client.js';
@@ -15,6 +15,10 @@ export default function Topbar({ onOpenMenu }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [lightMode, setLightMode] = useState(() => localStorage.getItem('vistarax_appearance') === 'light');
+  const [fontSize, setFontSize] = useState(() => localStorage.getItem('vistarax_font_size') || '14');
+  useEffect(() => { document.documentElement.dataset.appearance = lightMode ? 'light' : 'dark'; localStorage.setItem('vistarax_appearance', lightMode ? 'light' : 'dark'); }, [lightMode]);
+  useEffect(() => { document.documentElement.style.setProperty('--user-font-size', `${fontSize}px`); localStorage.setItem('vistarax_font_size', fontSize); }, [fontSize]);
   const menuRef = useRef(null);
 
   // --- Quick search: type 2+ characters and a live dropdown of matching
@@ -166,6 +170,8 @@ export default function Topbar({ onOpenMenu }) {
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
+        <button type="button" onClick={() => setLightMode(v => !v)} title={lightMode ? 'Switch to dark appearance' : 'Switch to light appearance'} aria-label="Toggle appearance" className="h-10 w-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition">{lightMode ? <Moon size={17} /> : <Sun size={17} />}</button>
+        <label title="Font size" className="hidden md:flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 px-2 h-10"><Type size={14}/><select aria-label="Font size" value={fontSize} onChange={e => setFontSize(e.target.value)} className="bg-transparent text-xs outline-none text-slate-300"><option className="bg-slate-900" value="12">Small</option><option className="bg-slate-900" value="14">Default</option><option className="bg-slate-900" value="16">Large</option><option className="bg-slate-900" value="18">Extra large</option></select></label>
         <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 px-2">
           {connected ? <Wifi size={14} className="text-emerald-400" /> : <WifiOff size={14} className="text-slate-600" />}
           {connected ? 'Live' : 'Offline'}

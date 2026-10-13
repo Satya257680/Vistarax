@@ -25,6 +25,7 @@ const roleRoutes = require('./src/routes/roles.routes');
 const settingsRoutes = require('./src/routes/settings.routes');
 const notificationRoutes = require('./src/routes/notifications.routes');
 const exportRoutes = require('./src/routes/export.routes');
+const recipientRoutes = require('./src/routes/recipients.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -62,6 +63,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { index: fal
 
 app.use('/api/auth', authRoutes);
 app.use('/api/visitors', visitorRoutes);
+app.use('/api/recipients', recipientRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/settings', settingsRoutes);
