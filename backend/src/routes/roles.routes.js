@@ -1,118 +1,93 @@
 // VistaraX - Roles & Permissions (Admin only)
-// Lists every role with its permission set and lets an admin create new
-// roles, rename/delete custom ones, and toggle what each role can do. The
-// "admin" role is hard-protected: always full access, can't be edited or
-// removed, so there's never a way to lock every admin out of the system.
 const express = require('express');
-const { db, logAudit } = require('../db');
+const { one, query, run, withTransaction, logAudit } = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { PERMISSION_CATALOG } = require('../utils/permissions');
+const { asyncHandler } = require('../utils/helpers');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
 
-function slugifyRole(label) {
-  let base = String(label).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+const isPerm = (p) => PERMISSION_CATALOG.some((c) => c.key === p);
+
+async function slugifyRole(label) {
+  let base = String(label).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 50);
   if (!base) base = 'role';
   let key = base;
   let i = 1;
-  while (db.prepare('SELECT 1 FROM roles WHERE key = ?').get(key)) key = `${base}_${i++}`;
+  while (await one('SELECT 1 AS x FROM roles WHERE role_key = ?', [key])) key = `${base}_${i++}`;
   return key;
 }
 
-// --- LIST ----------------------------------------------------------------
-router.get('/', (req, res) => {
-  const roles = db.prepare('SELECT * FROM roles ORDER BY is_system DESC, label ASC').all();
-  const permsByRole = db.prepare('SELECT role_key, permission_key FROM role_permissions').all();
-  const counts = db.prepare('SELECT role, COUNT(*) c FROM users GROUP BY role').all();
+router.get('/', asyncHandler(async (req, res) => {
+  const roles = await query('SELECT * FROM roles ORDER BY is_system DESC, label ASC');
+  const perms = await query('SELECT role_key, permission_key FROM role_permissions');
+  const counts = await query('SELECT role, COUNT(*) c FROM users GROUP BY role');
   const countMap = Object.fromEntries(counts.map((c) => [c.role, c.c]));
 
   const data = roles.map((r) => ({
-    key: r.key,
+    key: r.role_key,
     label: r.label,
     is_system: !!r.is_system,
-    userCount: countMap[r.key] || 0,
-    permissions:
-      r.key === 'admin'
-        ? PERMISSION_CATALOG.map((p) => p.key)
-        : permsByRole.filter((p) => p.role_key === r.key).map((p) => p.permission_key),
+    userCount: countMap[r.role_key] || 0,
+    permissions: r.role_key === 'admin' ? PERMISSION_CATALOG.map((p) => p.key) : perms.filter((p) => p.role_key === r.role_key).map((p) => p.permission_key),
   }));
-
   res.json({ data, catalog: PERMISSION_CATALOG });
-});
+}));
 
-// --- CREATE (label only; key is auto-generated & guaranteed unique) --------
-router.post('/', (req, res) => {
-  const { label, permissions } = req.body;
-  if (!label || !String(label).trim()) {
-    return res.status(422).json({ error: 'Role name is required.' });
+router.post('/', asyncHandler(async (req, res) => {
+  const { label, permissions } = req.body || {};
+  if (!label || !String(label).trim()) return res.status(422).json({ error: 'Role name is required.' });
+  const trimmed = String(label).trim().slice(0, 100);
+  if (await one('SELECT 1 AS x FROM roles WHERE label = ?', [trimmed])) {
+    return res.status(409).json({ error: 'A role with that name already exists.' });
   }
-  const trimmed = String(label).trim();
-  const clash = db.prepare('SELECT 1 FROM roles WHERE label = ? COLLATE NOCASE').get(trimmed);
-  if (clash) return res.status(409).json({ error: 'A role with that name already exists.' });
-
-  const key = slugifyRole(trimmed);
-  db.prepare('INSERT INTO roles (key, label, is_system) VALUES (?, ?, 0)').run(key, trimmed);
-
-  const validPerms = Array.isArray(permissions) ? permissions.filter((p) => PERMISSION_CATALOG.some((c) => c.key === p)) : [];
-  const insertPerm = db.prepare('INSERT OR IGNORE INTO role_permissions (role_key, permission_key) VALUES (?, ?)');
-  validPerms.forEach((p) => insertPerm.run(key, p));
-
-  logAudit({ userId: req.user.id, username: req.user.username, action: 'CREATE', module: 'roles', recordId: key, ip: req.ip });
+  const key = await slugifyRole(trimmed);
+  const validPerms = Array.isArray(permissions) ? [...new Set(permissions.filter(isPerm))] : [];
+  await withTransaction(async (tx) => {
+    await tx.run('INSERT INTO roles (role_key, label, is_system) VALUES (?, ?, 0)', [key, trimmed]);
+    for (const p of validPerms) await tx.run('INSERT IGNORE INTO role_permissions (role_key, permission_key) VALUES (?, ?)', [key, p]);
+  });
+  await logAudit({ userId: req.user.id, username: req.user.username, action: 'CREATE', module: 'roles', recordId: key, ip: req.ip });
   res.status(201).json({ role: { key, label: trimmed, is_system: false, userCount: 0, permissions: validPerms } });
-});
+}));
 
-// --- RENAME (custom roles only) -------------------------------------------
-router.put('/:key', (req, res) => {
-  const role = db.prepare('SELECT * FROM roles WHERE key = ?').get(req.params.key);
+router.put('/:key', asyncHandler(async (req, res) => {
+  const role = await one('SELECT * FROM roles WHERE role_key = ?', [req.params.key]);
   if (!role) return res.status(404).json({ error: 'Role not found.' });
   if (role.is_system) return res.status(400).json({ error: 'System roles cannot be renamed.' });
-
-  const { label } = req.body;
+  const { label } = req.body || {};
   if (!label || !String(label).trim()) return res.status(422).json({ error: 'Role name is required.' });
-
-  db.prepare('UPDATE roles SET label = ? WHERE key = ?').run(String(label).trim(), role.key);
-  logAudit({ userId: req.user.id, username: req.user.username, action: 'UPDATE', module: 'roles', recordId: role.key, ip: req.ip });
+  await run('UPDATE roles SET label = ? WHERE role_key = ?', [String(label).trim().slice(0, 100), role.role_key]);
+  await logAudit({ userId: req.user.id, username: req.user.username, action: 'UPDATE', module: 'roles', recordId: role.role_key, ip: req.ip });
   res.json({ ok: true });
-});
+}));
 
-// --- UPDATE PERMISSIONS (admin is locked out of this - always full access) ---
-router.put('/:key/permissions', (req, res) => {
-  const role = db.prepare('SELECT * FROM roles WHERE key = ?').get(req.params.key);
+router.put('/:key/permissions', asyncHandler(async (req, res) => {
+  const role = await one('SELECT * FROM roles WHERE role_key = ?', [req.params.key]);
   if (!role) return res.status(404).json({ error: 'Role not found.' });
-  if (role.key === 'admin') {
-    return res.status(400).json({ error: 'Admin always has full access and cannot be changed.' });
-  }
-  const { permissions } = req.body;
+  if (role.role_key === 'admin') return res.status(400).json({ error: 'Admin always has full access and cannot be changed.' });
+  const { permissions } = req.body || {};
   if (!Array.isArray(permissions)) return res.status(422).json({ error: 'permissions must be an array.' });
 
-  const validPerms = permissions.filter((p) => PERMISSION_CATALOG.some((c) => c.key === p));
-  const apply = db.transaction(() => {
-    db.prepare('DELETE FROM role_permissions WHERE role_key = ?').run(role.key);
-    const insertPerm = db.prepare('INSERT INTO role_permissions (role_key, permission_key) VALUES (?, ?)');
-    validPerms.forEach((p) => insertPerm.run(role.key, p));
+  const validPerms = [...new Set(permissions.filter(isPerm))];
+  await withTransaction(async (tx) => {
+    await tx.run('DELETE FROM role_permissions WHERE role_key = ?', [role.role_key]);
+    for (const p of validPerms) await tx.run('INSERT INTO role_permissions (role_key, permission_key) VALUES (?, ?)', [role.role_key, p]);
   });
-  apply();
-
-  logAudit({ userId: req.user.id, username: req.user.username, action: 'UPDATE', module: 'role_permissions', recordId: role.key, ip: req.ip });
+  await logAudit({ userId: req.user.id, username: req.user.username, action: 'UPDATE', module: 'role_permissions', recordId: role.role_key, ip: req.ip });
   res.json({ ok: true, permissions: validPerms });
-});
+}));
 
-// --- DELETE (custom roles only, and only while unused) ---------------------
-router.delete('/:key', (req, res) => {
-  const role = db.prepare('SELECT * FROM roles WHERE key = ?').get(req.params.key);
+router.delete('/:key', asyncHandler(async (req, res) => {
+  const role = await one('SELECT * FROM roles WHERE role_key = ?', [req.params.key]);
   if (!role) return res.status(404).json({ error: 'Role not found.' });
   if (role.is_system) return res.status(400).json({ error: 'System roles cannot be deleted.' });
-
-  const inUse = db.prepare('SELECT COUNT(*) c FROM users WHERE role = ?').get(role.key).c;
-  if (inUse > 0) {
-    return res.status(409).json({ error: `${inUse} user${inUse === 1 ? '' : 's'} still have this role. Reassign them first.` });
-  }
-
-  db.prepare('DELETE FROM role_permissions WHERE role_key = ?').run(role.key);
-  db.prepare('DELETE FROM roles WHERE key = ?').run(role.key);
-  logAudit({ userId: req.user.id, username: req.user.username, action: 'DELETE', module: 'roles', recordId: role.key, ip: req.ip });
+  const { c } = await one('SELECT COUNT(*) c FROM users WHERE role = ?', [role.role_key]);
+  if (c > 0) return res.status(409).json({ error: `${c} user${c === 1 ? '' : 's'} still have this role. Reassign them first.` });
+  await run('DELETE FROM roles WHERE role_key = ?', [role.role_key]); // role_permissions cascade
+  await logAudit({ userId: req.user.id, username: req.user.username, action: 'DELETE', module: 'roles', recordId: role.role_key, ip: req.ip });
   res.json({ ok: true });
-});
+}));
 
 module.exports = router;

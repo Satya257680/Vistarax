@@ -98,12 +98,12 @@ export default function Users() {
       setError('Name, username, contact number and role are all required.');
       return;
     }
-    if (!editUser && form.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (!editUser && form.password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
-    if (form.password && form.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (form.password && form.password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
 
@@ -303,7 +303,7 @@ export default function Users() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   required={!editUser}
-                  minLength={6}
+                  minLength={8}
                 />
               </div>
             </div>

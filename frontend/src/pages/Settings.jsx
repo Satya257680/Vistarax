@@ -119,11 +119,11 @@ export default function Settings() {
           </div>
           <div>
             <label className="label">New Password</label>
-            <input type="password" className="input" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} required minLength={6} />
+            <input type="password" className="input" value={pw.new_password} onChange={(e) => setPw({ ...pw, new_password: e.target.value })} required minLength={8} />
           </div>
           <div>
             <label className="label">Confirm New Password</label>
-            <input type="password" className="input" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required minLength={6} />
+            <input type="password" className="input" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required minLength={8} />
           </div>
           <button type="submit" className="btn-primary w-full">Update Password</button>
         </form>

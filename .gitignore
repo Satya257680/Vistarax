@@ -4,6 +4,8 @@ dist/
 .env.*
 !.env.example
 
-# SQLite database files
+# legacy SQLite files (pre-MySQL versions)
+*.db
 *.db-shm
 *.db-wal
+*.db-journal

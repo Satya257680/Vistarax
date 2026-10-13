@@ -1,22 +1,19 @@
 // VistaraX - Real-time layer (Socket.IO)
-// Clients connect with their JWT; we verify it before letting them join the
-// broadcast room so notifications never reach an unauthenticated socket.
-
-const jwt = require('jsonwebtoken');
-const { db } = require('./db');
+// Clients connect with their JWT; it is verified (same rules as HTTP) before the
+// socket may join the broadcast room.
+const { authenticateToken } = require('./middleware/auth');
 
 let ioInstance = null;
 
 function initSocket(io) {
   ioInstance = io;
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error('unauthorized'));
-      const payload = jwt.verify(token, process.env.JWT_SECRET);
-      const user = db.prepare('SELECT id, name, role, status FROM users WHERE id = ?').get(payload.sub);
-      if (!user || user.status !== 'active') return next(new Error('unauthorized'));
+      const user = await authenticateToken(token);
+      if (!user) return next(new Error('unauthorized'));
       socket.user = user;
       next();
     } catch (e) {
@@ -25,8 +22,7 @@ function initSocket(io) {
   });
 
   io.on('connection', (socket) => {
-    socket.join('staff'); // all authenticated staff receive live visitor activity
-    socket.on('disconnect', () => {});
+    socket.join('staff');
   });
 }
 

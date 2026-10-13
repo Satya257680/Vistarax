@@ -64,7 +64,7 @@ export default function Notifications() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={markAllRead} className="btn-secondary flex items-center gap-2 text-sm"><CheckCheck size={15} /> Mark all read</button>
-          {rows.length > 0 && (
+          {isAdmin && rows.length > 0 && (
             <button onClick={() => setClearOpen(true)} className="btn-danger flex items-center gap-2 text-sm"><Trash2 size={15} /> Clear All</button>
           )}
         </div>

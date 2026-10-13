@@ -1,249 +1,176 @@
-// VistaraX - Database layer (SQLite via better-sqlite3)
-// Standalone by design: no external DB server required. Swap this file for a
-// Postgres/pg adapter later if you need multi-server scaling - the rest of
-// the app only talks to the functions exported here.
+// VistaraX - Database layer (MySQL / MariaDB via mysql2/promise)
+//
+// Everything is async now. Exports:
+//   pool, query(sql, params) -> rows, one(sql, params) -> first row | null,
+//   run(sql, params) -> { insertId, affectedRows }, withTransaction(fn),
+//   initDb(), logAudit(...)
+//
+// All values go through "?" placeholders (never string concatenation).
 
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
-const Database = require('better-sqlite3');
+const mysql = require('mysql2/promise');
 const { SYSTEM_ROLES, DEFAULT_ROLE_PERMISSIONS } = require('./utils/permissions');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const DB_NAME = process.env.DB_NAME || 'vistarax';
 
-const db = new Database(path.join(DATA_DIR, 'vistarax.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const baseConfig = {
+  host: process.env.DB_HOST || '127.0.0.1',
+  port: parseInt(process.env.DB_PORT || '3306', 10),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  charset: 'utf8mb4',
+  timezone: 'Z', // DATETIME columns are UTC; Date objects serialise to ISO "...Z"
+  dateStrings: ['DATE'], // visit_date stays 'YYYY-MM-DD' instead of becoming a Date
+  decimalNumbers: true,
+  ...(String(process.env.DB_SSL).toLowerCase() === 'true' ? { ssl: { rejectUnauthorized: true } } : {}),
+};
 
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  username TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'employee',
-  phone TEXT,
-  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')),
-  failed_attempts INTEGER NOT NULL DEFAULT 0,
-  locked_until TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+const pool = mysql.createPool({
+  ...baseConfig,
+  database: DB_NAME,
+  waitForConnections: true,
+  connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '10', 10),
+  queueLimit: 0,
+  enableKeepAlive: true,
+});
 
--- Roles are open-ended: the five seeded below always exist, but an admin can
--- create more at any time (from the Roles & Permissions screen, or simply by
--- typing a new role name straight into a user's Role field).
-CREATE TABLE IF NOT EXISTS roles (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  key TEXT NOT NULL UNIQUE,
-  label TEXT NOT NULL,
-  is_system INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+async function query(sql, params = []) {
+  const [rows] = await pool.query(sql, params);
+  return rows;
+}
+async function one(sql, params = []) {
+  const rows = await query(sql, params);
+  return rows[0] || null;
+}
+async function run(sql, params = []) {
+  const [res] = await pool.query(sql, params);
+  return res; // { insertId, affectedRows, ... }
+}
 
-CREATE TABLE IF NOT EXISTS role_permissions (
-  role_key TEXT NOT NULL REFERENCES roles(key) ON DELETE CASCADE,
-  permission_key TEXT NOT NULL,
-  PRIMARY KEY (role_key, permission_key)
-);
+// Runs fn(conn) inside a transaction. conn has the same query/one/run helpers.
+async function withTransaction(fn) {
+  const conn = await pool.getConnection();
+  const tx = {
+    query: async (sql, p = []) => (await conn.query(sql, p))[0],
+    one: async (sql, p = []) => (await conn.query(sql, p))[0][0] || null,
+    run: async (sql, p = []) => (await conn.query(sql, p))[0],
+  };
+  try {
+    await conn.beginTransaction();
+    const result = await fn(tx);
+    await conn.commit();
+    return result;
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) { /* ignore */ }
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
 
-CREATE TABLE IF NOT EXISTS visitors (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  serial_no TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  contact_no TEXT NOT NULL,
-  whatsapp_no TEXT,
-  aadhaar_no TEXT,
-  companions TEXT,
-  whom_to_visit TEXT NOT NULL,
-  purpose TEXT,
-  checkin_time TEXT NOT NULL DEFAULT (datetime('now')),
-  checkout_time TEXT,
-  photo_url TEXT,
-  latitude REAL,
-  longitude REAL,
-  address TEXT,
-  visit_date TEXT NOT NULL,
-  visit_day TEXT NOT NULL,
-  remarks TEXT,
-  checkout_remarks TEXT,
-  status TEXT NOT NULL DEFAULT 'inside' CHECK(status IN ('inside','checked_out')),
-  created_by INTEGER REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+function loadSchemaStatements() {
+  const raw = fs.readFileSync(path.join(__dirname, '..', 'sql', 'schema.sql'), 'utf8');
+  return raw
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
-CREATE INDEX IF NOT EXISTS idx_visitors_name ON visitors(name);
-CREATE INDEX IF NOT EXISTS idx_visitors_contact ON visitors(contact_no);
-CREATE INDEX IF NOT EXISTS idx_visitors_date ON visitors(visit_date);
-CREATE INDEX IF NOT EXISTS idx_visitors_status ON visitors(status);
+async function ensureDatabase() {
+  // Creates the database if the DB user is allowed to. If not (shared hosting),
+  // create it yourself in phpMyAdmin / cPanel and this step is simply skipped.
+  try {
+    const conn = await mysql.createConnection(baseConfig);
+    await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME.replace(/`/g, '')}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    await conn.end();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(`[VistaraX] Could not auto-create database "${DB_NAME}" (${e.code || e.message}). Assuming it already exists.`);
+  }
+}
 
-CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  visitor_id INTEGER REFERENCES visitors(id) ON DELETE CASCADE,
-  is_read INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS settings (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  company_name TEXT NOT NULL DEFAULT 'VistaraX',
-  logo_url TEXT,
-  address TEXT,
-  contact TEXT,
-  timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
-  date_format TEXT NOT NULL DEFAULT 'DD MMM YYYY',
-  photo_required INTEGER NOT NULL DEFAULT 1,
-  location_required INTEGER NOT NULL DEFAULT 0,
-  accent_color TEXT NOT NULL DEFAULT 'blue',
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS audit_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER REFERENCES users(id),
-  username TEXT,
-  action TEXT NOT NULL,
-  module TEXT NOT NULL,
-  record_id TEXT,
-  ip_address TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-`);
-
-// --- Migration: older installs locked users.role to CHECK(role IN
-// ('admin','entry_boy')). Roles are now open-ended (kept in the `roles`
-// table instead), so anyone upgrading needs that column widened in place
-// without losing existing accounts.
-(function migrateUserRoleColumn() {
-  const tbl = db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'`).get();
-  if (tbl && /CHECK\s*\(\s*role\s+IN/i.test(tbl.sql)) {
-    // visitors.created_by and audit_logs.user_id both hold a FOREIGN KEY
-    // REFERENCES users(id). Two things have to be true while we swap the
-    // table out from under them:
-    //  1. `legacy_alter_table` must be ON so SQLite's rename doesn't rewrite
-    //     those columns' FK target to "users_pre_rbac" (which we then drop).
-    //  2. `foreign_keys` must be OFF for the duration, otherwise dropping
-    //     users_pre_rbac while real visitor/audit rows still point at it
-    //     fails with "FOREIGN KEY constraint failed".
-    // Both PRAGMAs are restored to their previous state afterwards.
-    const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
-    db.pragma('foreign_keys = OFF');
-    db.pragma('legacy_alter_table = ON');
-    try {
-      const migrate = db.transaction(() => {
-        db.exec(`ALTER TABLE users RENAME TO users_pre_rbac`);
-        db.exec(`
-          CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'employee',
-            phone TEXT,
-            status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')),
-            failed_attempts INTEGER NOT NULL DEFAULT 0,
-            locked_until TEXT,
-            created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-          );
-        `);
-        db.exec(`INSERT INTO users SELECT * FROM users_pre_rbac`);
-        db.exec(`DROP TABLE users_pre_rbac`);
-      });
-      migrate();
-    } finally {
-      db.pragma('legacy_alter_table = OFF');
-      if (fkWasOn) db.pragma('foreign_keys = ON');
+async function seedRoles() {
+  for (const r of SYSTEM_ROLES) {
+    const res = await run('INSERT IGNORE INTO roles (role_key, label, is_system) VALUES (?, ?, 1)', [r.key, r.label]);
+    // Default permissions are applied ONLY when the role is first created, so
+    // permissions an admin later removes in the UI are not silently re-added
+    // on the next restart.
+    if (res.affectedRows === 1) {
+      for (const p of DEFAULT_ROLE_PERMISSIONS[r.key] || []) {
+        await run('INSERT IGNORE INTO role_permissions (role_key, permission_key) VALUES (?, ?)', [r.key, p]);
+      }
     }
-    // eslint-disable-next-line no-console
-    console.log('[VistaraX] Migrated users.role to support custom roles.');
-  }
-})();
-
-// --- Migration: add visitors.checkout_remarks for installs created before
-// the checkout-time notes feature existed. Plain ADD COLUMN - no foreign
-// keys involved, so this one is simple.
-// --- Migration: add visitors.aadhaar_no for mandatory identity capture on new entries.
-(function migrateVisitorAadhaarColumn() {
-  const cols = db.prepare(`PRAGMA table_info(visitors)`).all();
-  if (cols.length && !cols.some((c) => c.name === 'aadhaar_no')) {
-    db.exec(`ALTER TABLE visitors ADD COLUMN aadhaar_no TEXT`);
-    // eslint-disable-next-line no-console
-    console.log('[VistaraX] Added visitors.aadhaar_no column.');
-  }
-})();
-
-(function migrateVisitorCheckoutRemarks() {
-  const cols = db.prepare(`PRAGMA table_info(visitors)`).all();
-  if (cols.length && !cols.some((c) => c.name === 'checkout_remarks')) {
-    db.exec(`ALTER TABLE visitors ADD COLUMN checkout_remarks TEXT`);
-    // eslint-disable-next-line no-console
-    console.log('[VistaraX] Added visitors.checkout_remarks column.');
-  }
-})();
-
-// --- Migration: add users.email so an account can be identified by
-// role + username + email for the self-service "Forgot Password" flow.
-// Nullable (older/unassigned accounts simply can't use that flow until an
-// admin sets one), and uniquely indexed below - SQLite's UNIQUE index
-// allows any number of NULLs, so accounts without an email never collide.
-(function migrateUserEmailColumn() {
-  const cols = db.prepare(`PRAGMA table_info(users)`).all();
-  if (cols.length && !cols.some((c) => c.name === 'email')) {
-    db.exec(`ALTER TABLE users ADD COLUMN email TEXT`);
-    // eslint-disable-next-line no-console
-    console.log('[VistaraX] Added users.email column.');
-  }
-})();
-db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
-
-// Seed default settings row
-const settingsRow = db.prepare('SELECT id FROM settings WHERE id = 1').get();
-if (!settingsRow) {
-  db.prepare(`INSERT INTO settings (id, company_name) VALUES (1, 'VistaraX')`).run();
-}
-
-// Seed the system roles and their default permission sets (idempotent - safe
-// to run on every boot; INSERT OR IGNORE skips anything already there).
-function seedRoles() {
-  const insertRole = db.prepare('INSERT OR IGNORE INTO roles (key, label, is_system) VALUES (?, ?, 1)');
-  SYSTEM_ROLES.forEach((r) => insertRole.run(r.key, r.label));
-
-  const insertPerm = db.prepare('INSERT OR IGNORE INTO role_permissions (role_key, permission_key) VALUES (?, ?)');
-  Object.entries(DEFAULT_ROLE_PERMISSIONS).forEach(([roleKey, perms]) => {
-    perms.forEach((p) => insertPerm.run(roleKey, p));
-  });
-}
-seedRoles();
-
-// Seed default admin (only if no users exist yet)
-function seedAdmin() {
-  const count = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
-  if (count === 0) {
-    const username = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
-    const password = process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeMe@123';
-    const name = process.env.DEFAULT_ADMIN_NAME || 'System Admin';
-    const email = process.env.DEFAULT_ADMIN_EMAIL || null;
-    const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
-    const hash = bcrypt.hashSync(password, rounds);
-    db.prepare(
-      `INSERT INTO users (name, username, password_hash, role, status, email) VALUES (?, ?, ?, 'admin', 'active', ?)`
-    ).run(name, username, hash, email);
-    // eslint-disable-next-line no-console
-    console.log(`[VistaraX] Seeded default admin user "${username}". Please log in and change the password immediately.`);
   }
 }
-seedAdmin();
 
-function logAudit({ userId, username, action, module, recordId, ip }) {
-  db.prepare(
-    `INSERT INTO audit_logs (user_id, username, action, module, record_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(userId || null, username || null, action, module, recordId ? String(recordId) : null, ip || null);
+async function seedSerialCounters() {
+  // Keeps serial numbers monotonic when the DB already holds visitors
+  // (for example after importing from SQLite).
+  await run(
+    `INSERT IGNORE INTO serial_counters (year, last_seq)
+     SELECT CAST(SUBSTRING(serial_no, 5, 4) AS UNSIGNED), MAX(CAST(SUBSTRING(serial_no, 10) AS UNSIGNED))
+     FROM visitors WHERE serial_no REGEXP '^VST-[0-9]{4}-[0-9]+$'
+     GROUP BY 1`
+  );
 }
 
-module.exports = { db, logAudit };
+async function seedAdmin() {
+  const { c } = await one('SELECT COUNT(*) AS c FROM users');
+  if (c > 0) return;
+  const username = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
+  let password = process.env.DEFAULT_ADMIN_PASSWORD;
+  let generated = false;
+  if (!password) {
+    password = crypto.randomBytes(12).toString('base64url');
+    generated = true;
+  }
+  const name = process.env.DEFAULT_ADMIN_NAME || 'System Admin';
+  const email = (process.env.DEFAULT_ADMIN_EMAIL || '').trim().toLowerCase() || null;
+  const rounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
+  const hash = await bcrypt.hash(password, rounds);
+  await run(
+    `INSERT INTO users (name, username, password_hash, role, status, email) VALUES (?, ?, ?, 'admin', 'active', ?)`,
+    [name, username, hash, email]
+  );
+  // eslint-disable-next-line no-console
+  console.log(`[VistaraX] Seeded default admin "${username}".`);
+  if (generated) {
+    // eslint-disable-next-line no-console
+    console.log(`[VistaraX] Generated one-time admin password: ${password}   <-- save it now, it is not shown again.`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('[VistaraX] Log in and change the password immediately.');
+  }
+}
+
+async function initDb() {
+  await ensureDatabase();
+  for (const stmt of loadSchemaStatements()) {
+    await pool.query(stmt);
+  }
+  await run(`INSERT IGNORE INTO settings (id, company_name) VALUES (1, 'VistaraX')`);
+  await seedRoles();
+  await seedSerialCounters();
+  await seedAdmin();
+}
+
+// Audit logging must never break the request it is describing.
+async function logAudit({ userId, username, action, module: mod, recordId, ip }) {
+  try {
+    await run(
+      `INSERT INTO audit_logs (user_id, username, action, module, record_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId || null, username || null, action, mod, recordId ? String(recordId).slice(0, 100) : null, ip ? String(ip).slice(0, 64) : null]
+    );
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[VistaraX] audit log write failed:', e.message);
+  }
+}
+
+module.exports = { pool, query, one, run, withTransaction, initDb, logAudit };

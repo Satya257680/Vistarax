@@ -1,40 +1,42 @@
 // VistaraX - Company / app settings
 const express = require('express');
-const { db, logAudit } = require('../db');
+const { one, run, logAudit } = require('../db');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { upload } = require('../middleware/upload');
+const { upload, verifyUploadedImage, removeUpload } = require('../middleware/upload');
+const { asyncHandler } = require('../utils/helpers');
 
 const router = express.Router();
 router.use(requireAuth);
 
-router.get('/', (req, res) => {
-  const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
-  res.json({ settings });
-});
+const toBool = (v, fallback) => (v === undefined ? fallback : (v === true || v === 'true' || v === '1' || v === 1 ? 1 : 0));
 
-router.put('/', requireRole('admin'), upload.single('logo'), (req, res) => {
+router.get('/', asyncHandler(async (req, res) => {
+  res.json({ settings: await one('SELECT * FROM settings WHERE id = 1') });
+}));
+
+router.put('/', requireRole('admin'), upload.single('logo'), verifyUploadedImage, asyncHandler(async (req, res) => {
   const b = req.body;
-  const current = db.prepare('SELECT * FROM settings WHERE id = 1').get();
-  const logoUrl = req.file ? `/uploads/visitors/${req.file.filename}` : current.logo_url;
+  const current = await one('SELECT * FROM settings WHERE id = 1');
+  let logoUrl = current.logo_url;
+  if (req.file) {
+    removeUpload(current.logo_url);
+    logoUrl = `/uploads/visitors/${req.file.filename}`;
+  }
+  const str = (v, fb, max) => (v === undefined ? fb : String(v).slice(0, max));
 
-  db.prepare(
+  await run(
     `UPDATE settings SET company_name=?, logo_url=?, address=?, contact=?, timezone=?, date_format=?,
-      photo_required=?, location_required=?, accent_color=?, updated_at = datetime('now') WHERE id = 1`
-  ).run(
-    b.company_name ?? current.company_name,
-    logoUrl,
-    b.address ?? current.address,
-    b.contact ?? current.contact,
-    b.timezone ?? current.timezone,
-    b.date_format ?? current.date_format,
-    b.photo_required !== undefined ? (b.photo_required === 'true' || b.photo_required === true ? 1 : 0) : current.photo_required,
-    b.location_required !== undefined ? (b.location_required === 'true' || b.location_required === true ? 1 : 0) : current.location_required,
-    b.accent_color ?? current.accent_color,
+       photo_required=?, location_required=?, accent_color=? WHERE id = 1`,
+    [
+      str(b.company_name, current.company_name, 150) || current.company_name, logoUrl,
+      str(b.address, current.address, 500), str(b.contact, current.contact, 100),
+      str(b.timezone, current.timezone, 60), str(b.date_format, current.date_format, 30),
+      toBool(b.photo_required, current.photo_required), toBool(b.location_required, current.location_required),
+      str(b.accent_color, current.accent_color, 30),
+    ]
   );
-
-  logAudit({ userId: req.user.id, username: req.user.username, action: 'UPDATE', module: 'settings', ip: req.ip });
-  const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
-  res.json({ settings });
-});
+  await logAudit({ userId: req.user.id, username: req.user.username, action: 'UPDATE', module: 'settings', ip: req.ip });
+  res.json({ settings: await one('SELECT * FROM settings WHERE id = 1') });
+}));
 
 module.exports = router;

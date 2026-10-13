@@ -13,7 +13,6 @@ import {
 import client from '../api/client.js';
 
 const ROLE_OPTIONS = [
-  { key: 'admin', label: 'Admin' },
   { key: 'manager', label: 'Manager' },
   { key: 'entry_boy', label: 'Entry Boy' },
   { key: 'entry_girl', label: 'Entry Girl' },
@@ -21,7 +20,7 @@ const ROLE_OPTIONS = [
 ];
 
 const PW_MIN = 8;
-const PW_MAX = 15;
+const PW_MAX = 64;
 
 function StepDot({ active, done }) {
   return (

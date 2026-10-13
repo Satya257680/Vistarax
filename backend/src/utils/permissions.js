@@ -45,7 +45,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
     'currently_inside.view', 'reports.view', 'notifications.view', 'users.view',
   ],
   entry_boy: [
-    'dashboard.view', 'visitors.view', 'visitors.manage', 'visitors.export',
+    'dashboard.view', 'visitors.view', 'visitors.manage', 'visitors.delete', 'visitors.export',
     'currently_inside.view', 'notifications.view',
   ],
   entry_girl: [
@@ -56,13 +56,11 @@ const DEFAULT_ROLE_PERMISSIONS = {
 };
 
 // Admin always resolves to every permission, regardless of what (if anything)
-// is stored for it in role_permissions - takes a `db` handle as an argument
-// instead of requiring ../db itself, so this file never has to know about
-// the database module (db.js requires this file to seed itself, so the
-// reverse require would be circular).
-function getPermissionsForRole(db, roleKey) {
+// is stored for it in role_permissions. Takes a `queryFn` (db.query) instead of
+// requiring ../db itself, because db.js requires this file (circular otherwise).
+async function getPermissionsForRole(queryFn, roleKey) {
   if (roleKey === 'admin') return ALL_PERMISSION_KEYS;
-  const rows = db.prepare('SELECT permission_key FROM role_permissions WHERE role_key = ?').all(roleKey);
+  const rows = await queryFn('SELECT permission_key FROM role_permissions WHERE role_key = ?', [roleKey]);
   return rows.map((r) => r.permission_key);
 }
 
